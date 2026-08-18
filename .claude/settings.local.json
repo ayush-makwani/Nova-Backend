@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/admin1/.m2/repository/org/springframework/boot/spring-boot-autoconfigure/**)",
+      "Bash(mvn -v)",
+      "Read(//tmp/**)",
+      "Bash(unzip -p ~/.m2/repository/org/springframework/boot/spring-boot-autoconfigure/3.4.2/spring-boot-autoconfigure-3.4.2.jar META-INF/spring-configuration-metadata.json)",
+      "Bash(python3 -c ' *)",
+      "Bash(mvn -q dependency:get -Dartifact=org.springframework.boot:spring-boot-autoconfigure:3.4.2:jar:sources)",
+      "Bash(mvn -q dependency:get -Dartifact=org.springframework.security:spring-security-saml2-service-provider:6.4.2:jar:sources)",
+      "Bash(mkdir -p /tmp/saml2src)",
+      "Bash(unzip -o -q ~/.m2/repository/org/springframework/security/spring-security-saml2-service-provider/6.4.2/spring-security-saml2-service-provider-6.4.2-sources.jar -d .)",
+      "Bash(mvn -q dependency:get -Dartifact=org.springframework.security:spring-security-config:6.4.2:jar:sources)",
+      "Bash(mkdir -p /tmp/secconfsrc)",
+      "Bash(unzip -o -q ~/.m2/repository/org/springframework/security/spring-security-config/6.4.2/spring-security-config-6.4.2-sources.jar -d .)",
+      "Bash(mvn -q dependency:get -Dartifact=org.springframework.security:spring-security-crypto:6.4.2:jar:sources)",
+      "Bash(mkdir -p /tmp/critsrc)",
+      "Bash(unzip -o -q ~/.m2/repository/org/springframework/security/spring-security-crypto/6.4.2/spring-security-crypto-6.4.2-sources.jar -d .)",
+      "Bash(mvn -q dependency:get -Dartifact=org.springframework.security:spring-security-web:6.4.2:jar:sources)",
+      "Bash(mkdir -p /tmp/websrc)",
+      "Bash(unzip -o -q ~/.m2/repository/org/springframework/security/spring-security-web/6.4.2/spring-security-web-6.4.2-sources.jar -d .)",
+      "Bash(mvn -q -o dependency:resolve)",
+      "Bash(mvn -q dependency:resolve)",
+      "Bash(mvn -q dependency:resolve -U)",
+      "Bash(curl -sI --max-time 10 \"https://build.shibboleth.net/nexus/content/repositories/releases/org/opensaml/opensaml-saml-api/4.3.2/opensaml-saml-api-4.3.2.pom\")",
+      "Bash(mvn -q compile)",
+      "Bash(mvn -q test)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(mvn -q clean test)",
+      "Bash(openssl req *)"
+    ]
+  }
+}

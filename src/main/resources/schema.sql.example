@@ -1,0 +1,166 @@
+-- ---------------------------------------------------------------------------
+-- Reference DDL (Hibernate will auto-create/update this schema via
+-- spring.jpa.hibernate.ddl-auto=update, but this file is provided so you can
+-- create the schema manually / review it, or wire it into Flyway/Liquibase).
+-- ---------------------------------------------------------------------------
+
+CREATE DATABASE IF NOT EXISTS secure_app_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS 'secure_app_user'@'%' IDENTIFIED BY 'change_me';
+GRANT ALL PRIVILEGES ON secure_app_db.* TO 'secure_app_user'@'%';
+FLUSH PRIVILEGES;
+
+USE secure_app_db;
+
+CREATE TABLE IF NOT EXISTS users (
+    id                          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username                    VARCHAR(50)  NOT NULL UNIQUE,
+    email                       VARCHAR(100) NOT NULL UNIQUE,
+    -- Nullable: SSO-provisioned accounts (auth_provider = 'SAML') have no local password.
+    password                    VARCHAR(255) NULL,
+    full_name                   VARCHAR(100),
+    enabled                     BOOLEAN NOT NULL DEFAULT TRUE,
+    account_non_locked          BOOLEAN NOT NULL DEFAULT TRUE,
+    failed_attempts             INT NOT NULL DEFAULT 0,
+    lock_time                   TIMESTAMP NULL,
+    mfa_enabled                 BOOLEAN NOT NULL DEFAULT FALSE,
+    mfa_secret                  VARCHAR(255),
+    credentials_non_expired     BOOLEAN NOT NULL DEFAULT TRUE,
+    password_changed_at         TIMESTAMP NULL,
+    created_at                  TIMESTAMP NULL,
+    -- Enterprise SSO (SAML)
+    auth_provider               VARCHAR(20) NOT NULL DEFAULT 'LOCAL',
+    sso_registration_id         VARCHAR(100),
+    sso_subject_id              VARCHAR(255),
+    UNIQUE KEY uk_users_sso_identity (sso_registration_id, sso_subject_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_roles (
+    user_id  BIGINT NOT NULL,
+    role     VARCHAR(20) NOT NULL,
+    PRIMARY KEY (user_id, role),
+    CONSTRAINT fk_user_roles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id           BIGINT AUTO_INCREMENT PRIMARY KEY,
+    token        VARCHAR(512) NOT NULL UNIQUE,
+    user_id      BIGINT NOT NULL,
+    expiry_date  TIMESTAMP NOT NULL,
+    revoked      BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at   TIMESTAMP NULL,
+    device_info  VARCHAR(255),
+    CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX idx_refresh_tokens_token   ON refresh_tokens(token);
+
+CREATE TABLE IF NOT EXISTS voices (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name              VARCHAR(50)  NOT NULL UNIQUE,
+    description       VARCHAR(255) NOT NULL,
+    -- Nullable: no audio sample uploaded yet, "play" is inert until this is set.
+    preview_audio_url VARCHAR(255) NULL,
+    display_order     INT NOT NULL DEFAULT 0,
+    -- False = retired from the catalog; existing companions keep it, new selections can't pick it.
+    active            BOOLEAN NOT NULL DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS voice_traits (
+    voice_id     BIGINT NOT NULL,
+    trait        VARCHAR(50) NOT NULL,
+    trait_order  INT NOT NULL,
+    PRIMARY KEY (voice_id, trait_order),
+    CONSTRAINT fk_voice_traits_voice FOREIGN KEY (voice_id) REFERENCES voices(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS projects (
+    id                    BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id               BIGINT NOT NULL,
+    name                  VARCHAR(100)  NOT NULL,
+    description           VARCHAR(2000) NULL,
+    -- Free-form context pasted in step 2 ("Add Context") for the companion to read before its first meeting.
+    text_context          VARCHAR(5000) NULL,
+    -- Placeholder until document/voice-note upload is implemented.
+    context_files_count   INT NOT NULL DEFAULT 0,
+    created_at            TIMESTAMP NULL,
+    CONSTRAINT fk_projects_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_projects_user_id ON projects(user_id);
+
+CREATE TABLE IF NOT EXISTS project_tags (
+    project_id  BIGINT NOT NULL,
+    tag         VARCHAR(30) NOT NULL,
+    tag_order   INT NOT NULL,
+    PRIMARY KEY (project_id, tag_order),
+    CONSTRAINT fk_project_tags_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS companions (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id           BIGINT NOT NULL,
+    name              VARCHAR(50)  NOT NULL,
+    seat_number       INT NOT NULL,
+    email             VARCHAR(100) NOT NULL UNIQUE,
+    -- Assigned a default at creation time; changeable later from the AI Voice screen.
+    voice_id          BIGINT NOT NULL,
+    -- Nullable: unassigned companions show as "Unassigned" until linked to a project.
+    project_id        BIGINT NULL,
+    price_per_month   DECIMAL(10,2) NOT NULL,
+    status            VARCHAR(20)  NOT NULL DEFAULT 'ACTIVE',
+    presence_status   VARCHAR(20)  NOT NULL DEFAULT 'IDLE',
+    meetings_count    INT NOT NULL DEFAULT 0,
+    -- Nullable: no meetings attended yet.
+    last_meeting_at   TIMESTAMP NULL,
+    -- Behavior settings (Companion Settings screen)
+    auto_join_meetings      BOOLEAN NOT NULL DEFAULT TRUE,
+    send_mom_automatically  BOOLEAN NOT NULL DEFAULT TRUE,
+    respond_in_voice        BOOLEAN NOT NULL DEFAULT TRUE,
+    record_meeting_audio    BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at        TIMESTAMP NULL,
+    CONSTRAINT fk_companions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_companions_voice FOREIGN KEY (voice_id) REFERENCES voices(id),
+    CONSTRAINT fk_companions_project FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+
+CREATE INDEX idx_companions_user_id ON companions(user_id);
+CREATE INDEX idx_companions_voice_id ON companions(voice_id);
+CREATE INDEX idx_companions_project_id ON companions(project_id);
+
+CREATE TABLE IF NOT EXISTS meetings (
+    id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+    companion_id     BIGINT NOT NULL,
+    title            VARCHAR(150) NOT NULL,
+    -- Project the companion was working under when this meeting happened;
+    -- recorded independently of the companion's current project assignment.
+    project          VARCHAR(100) NULL,
+    platform         VARCHAR(20)  NOT NULL,
+    -- Join URL for the companion (and attendees) to connect with.
+    meeting_url      VARCHAR(500) NOT NULL,
+    attendee_count   INT NOT NULL DEFAULT 0,
+    -- SCHEDULED, LIVE, COMPLETED, or CANCELLED.
+    status           VARCHAR(20)  NOT NULL DEFAULT 'SCHEDULED',
+    scheduled_at     TIMESTAMP NOT NULL,
+    -- True once the companion has actually joined a LIVE meeting.
+    companion_joined BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Per-meeting companion behavior overrides
+    auto_join_meetings      BOOLEAN NOT NULL DEFAULT TRUE,
+    send_mom_automatically  BOOLEAN NOT NULL DEFAULT TRUE,
+    respond_in_voice        BOOLEAN NOT NULL DEFAULT FALSE,
+    record_meeting_audio    BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at       TIMESTAMP NULL,
+    CONSTRAINT fk_meetings_companion FOREIGN KEY (companion_id) REFERENCES companions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_meetings_companion_id ON meetings(companion_id);
+
+CREATE TABLE IF NOT EXISTS meeting_attendees (
+    meeting_id     BIGINT NOT NULL,
+    attendee       VARCHAR(100) NOT NULL,
+    attendee_order INT NOT NULL,
+    PRIMARY KEY (meeting_id, attendee_order),
+    CONSTRAINT fk_meeting_attendees_meeting FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_meetings_scheduled_at ON meetings(scheduled_at);

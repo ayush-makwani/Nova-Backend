@@ -1,0 +1,146 @@
+server:
+  port: 8111
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
+spring:
+  application:
+    name: nova-app
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/nova?useSSL=true&serverTimezone=UTC&allowPublicKeyRetrieval=false
+    username: root
+    password: Root@123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 20000
+
+  jpa:
+    hibernate:
+      # use 'validate' in production once schema is managed by migrations
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+    open-in-view: false
+
+  jackson:
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: false
+
+# ---------------------------------------------------------------------------
+# OpenAPI / Swagger UI (see config.OpenApiConfig). Both paths are permitted
+# without authentication in SecurityConfig; individual operations still
+# require the same JWT the live API enforces.
+# ---------------------------------------------------------------------------
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
+
+# ---------------------------------------------------------------------------
+# Application specific security configuration
+# ---------------------------------------------------------------------------
+app:
+  security:
+    jwt:
+      # Base64 encoded HMAC-SHA256 secret (>= 256 bits). OVERRIDE in production via env var!
+      secret: ${JWT_SECRET:MzY0N2M4YTY1MjNlZDQ1YTQyOTBjNDcyM2FiZDkwYzE2N2FlNzM1NGYxYjQ0MzQxYmY1YzM1YzYzZGVkNGQ2Yg==}
+      access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}       # 15 minutes
+      refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
+      issuer: nova-app
+    account-lock:
+      max-failed-attempts: 5
+      lock-duration-minutes: 15
+    mfa:
+      issuer: NovaApp
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+    rate-limit:
+      login:
+        capacity: 10
+        refill-tokens: 10
+        refill-duration-minutes: 1
+    sso:
+      saml:
+        # Master switch. False = SamlSsoConfig is not even evaluated and the
+        # app behaves exactly as it did before SSO existed. See the
+        # "Enterprise SSO (SAML)" section of README.md before turning this on.
+        enabled: ${SSO_SAML_ENABLED:false}
+        auto-provision: ${SSO_SAML_AUTO_PROVISION:true}
+        default-role: ${SSO_SAML_DEFAULT_ROLE:ROLE_USER}
+        email-attribute: ${SSO_SAML_EMAIL_ATTRIBUTE:email}
+        full-name-attribute: ${SSO_SAML_FULL_NAME_ATTRIBUTE:displayName}
+        success-redirect-uri: ${SSO_SAML_SUCCESS_REDIRECT_URI:http://localhost:3000/sso/callback}
+        failure-redirect-uri: ${SSO_SAML_FAILURE_REDIRECT_URI:http://localhost:3000/sso/error}
+  companions:
+    price-per-month: 89.00
+    max-quantity: 10
+    name-prefix: NOVA
+    default-voice: Atlas
+    default-behavior:
+      auto-join-meetings: true
+      send-mom-automatically: true
+      respond-in-voice: true
+      record-meeting-audio: false
+    payment:
+      # Master switch. False (default) = checkout skips real payment
+      # processing entirely and companions are activated immediately on
+      # creation. True = creation requests are rejected (501) since a
+      # payment provider is not integrated yet.
+      enabled: ${COMPANIONS_PAYMENT_ENABLED:false}
+
+# ---------------------------------------------------------------------------
+# SAML 2.0 relying party registration(s) - required only if
+# app.security.sso.saml.enabled is true above. Spring Boot auto-configures a
+# RelyingPartyRegistrationRepository bean from these properties; leaving this
+# section absent/commented keeps SSO fully inert. One block per identity
+# provider (Okta, Azure AD / Entra ID, PingFederate, Keycloak, ...); the map
+# key ("okta" below) is the registrationId used in URLs such as
+# /saml2/authenticate/okta.
+#
+# spring:
+#   security:
+#     saml2:
+#       relyingparty:
+#         registration:
+#           okta:
+#             entity-id: "{baseUrl}/saml2/service-provider-metadata/{registrationId}"
+#             acs:
+#               location: "{baseUrl}/login/saml2/sso/{registrationId}"
+#             assertingparty:
+#               # Simplest option: point at the IdP's published metadata and
+#               # everything else (SSO URL, signing cert, binding) is
+#               # discovered automatically.
+#               metadata-uri: https://your-org.okta.com/app/exk.../sso/saml/metadata
+#               # Or configure manually instead of metadata-uri:
+#               # entity-id: http://www.okta.com/exk...
+#               # singlesignon:
+#               #   url: https://your-org.okta.com/app/exk.../sso/saml
+#               #   binding: POST
+#               #   sign-request: false
+#               # verification:
+#               #   credentials:
+#               #     - certificate-location: "classpath:saml/okta.crt"
+#             # Only needed if the IdP requires signed AuthnRequests
+#             # (assertingparty.singlesignon.sign-request: true):
+#             # signing:
+#             #   credentials:
+#             #     - private-key-location: "classpath:saml/sp-signing.key"
+#             #       certificate-location: "classpath:saml/sp-signing.crt"
+
+logging:
+  level:
+    root: INFO
+    org.springframework.security: WARN
+    com.example.nova: INFO
