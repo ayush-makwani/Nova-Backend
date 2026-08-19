@@ -34,7 +34,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
     private static final String[] LIMITED_PATHS = {
             "/api/auth/login",
-            "/api/auth/signup",
+            "/api/auth/signup/individual",
+            "/api/auth/signup/company",
             "/api/auth/refresh-token",
             "/api/auth/mfa/verify",
             "/api/auth/sso/exchange"

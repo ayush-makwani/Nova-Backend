@@ -3,22 +3,18 @@ package com.example.nova.dto;
 import jakarta.validation.constraints.*;
 import lombok.Data;
 
+/** "Individual" account type - step 2 ("Your Details") of the signup wizard. */
 @Data
-public class SignupRequest {
+public class IndividualSignupRequest {
 
-    @NotBlank(message = "Username is required")
-    @Size(min = 4, max = 50, message = "Username must be between 4 and 50 characters")
-    @Pattern(regexp = "^[a-zA-Z0-9._-]+$", message = "Username may only contain letters, digits, dots, underscores and hyphens")
-    private String username;
+    @NotBlank(message = "Name is required")
+    @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
+    private String name;
 
     @NotBlank(message = "Email is required")
     @Email(message = "Email must be a valid email address")
     @Size(max = 100)
     private String email;
-
-    @NotBlank(message = "Full name is required")
-    @Size(min = 2, max = 100)
-    private String fullName;
 
     @NotBlank(message = "Password is required")
     @Size(min = 10, max = 128, message = "Password must be between 10 and 128 characters")

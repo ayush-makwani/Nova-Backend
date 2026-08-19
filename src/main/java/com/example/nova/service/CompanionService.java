@@ -91,12 +91,65 @@ public class CompanionService {
                 .build();
     }
 
+    // Companion.voice and Companion.project are lazy associations; open-in-view
+    // is disabled, so the mapping to CompanionResponse must happen inside a
+    // transaction or these throw LazyInitializationException once the
+    // controller serializes the result outside Hibernate's session.
+    @Transactional(readOnly = true)
     public List<CompanionResponse> listCompanions(User user) {
         return companionRepository.findAllByUserOrderByCreatedAtAsc(user).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Auto-provisions the one free companion ("NOVA-1") bundled with the
+     * Individual signup flow's 14-day trial. Unlike {@link #createCompanions},
+     * this never checks the payment flag - the free companion is unconditional.
+     * The email is namespaced by the new user's username (globally unique)
+     * since an individual account has no company domain to namespace it with.
+     */
+    @Transactional
+    public Companion provisionInitialCompanion(User user) {
+        Voice defaultVoice = voiceRepository.findByNameIgnoreCase(companionProperties.getDefaultVoice())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Default voice '" + companionProperties.getDefaultVoice() + "' is not configured in the voice catalog"));
+        CompanionProperties.Behavior defaultBehavior = companionProperties.getDefaultBehavior();
+
+        int seatNumber = 1;
+        String name = companionProperties.getNamePrefix() + "-" + seatNumber;
+        String email = uniqueCompanionEmail(name.toLowerCase(), user.getUsername());
+
+        Companion companion = Companion.builder()
+                .user(user)
+                .name(name)
+                .seatNumber(seatNumber)
+                .email(email)
+                .voice(defaultVoice)
+                .status(CompanionStatus.ACTIVE)
+                .presenceStatus(CompanionPresenceStatus.IDLE)
+                .meetingsCount(0)
+                .autoJoinMeetings(defaultBehavior.isAutoJoinMeetings())
+                .sendMomAutomatically(defaultBehavior.isSendMomAutomatically())
+                .respondInVoice(defaultBehavior.isRespondInVoice())
+                .recordMeetingAudio(defaultBehavior.isRecordMeetingAudio())
+                .pricePerMonth(companionProperties.getPricePerMonth())
+                .build();
+
+        return companionRepository.save(companion);
+    }
+
+    private String uniqueCompanionEmail(String localPart, String domainSlug) {
+        String candidate = localPart + "@" + domainSlug + ".nova.ai";
+        // Usernames are already globally unique, so this is guaranteed unique on the
+        // first attempt; the timestamp suffix below is defense-in-depth only.
+        if (companionRepository.existsByEmail(candidate)) {
+            candidate = localPart + "-" + System.currentTimeMillis() + "@" + domainSlug + ".nova.ai";
+        }
+        return candidate;
+    }
+
+    @Transactional(readOnly = true)
     public CompanionSettingsResponse getSettings(User user, Long companionId) {
         Companion companion = companionRepository.findByIdAndUser(companionId, user)
                 .orElseThrow(() -> new CompanionNotFoundException("Companion not found"));
@@ -126,6 +179,7 @@ public class CompanionService {
         return toSettingsResponse(companion);
     }
 
+    @Transactional(readOnly = true)
     public List<VoiceResponse> listVoices(User user, Long companionId) {
         Companion companion = companionRepository.findByIdAndUser(companionId, user)
                 .orElseThrow(() -> new CompanionNotFoundException("Companion not found"));

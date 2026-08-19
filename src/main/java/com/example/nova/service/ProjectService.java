@@ -66,6 +66,9 @@ public class ProjectService {
         return toResponse(project, companion);
     }
 
+    // Each row does further lookups (companion, its meeting stats); keeping this
+    // in one transaction avoids N extra sessions and any lazy-association surprises.
+    @Transactional(readOnly = true)
     public List<ProjectResponse> listProjects(User user) {
         return projectRepository.findAllByUserOrderByCreatedAtAsc(user).stream()
                 .map(project -> toResponse(project, companionRepository.findByProject(project).orElse(null)))
@@ -73,6 +76,7 @@ public class ProjectService {
     }
 
     /** Lightweight id/name pairs for populating a "Select Project" dropdown. */
+    @Transactional(readOnly = true)
     public List<ProjectOptionResponse> listProjectOptions(User user) {
         return projectRepository.findAllByUserOrderByCreatedAtAsc(user).stream()
                 .map(project -> ProjectOptionResponse.builder().id(project.getId()).name(project.getName()).build())

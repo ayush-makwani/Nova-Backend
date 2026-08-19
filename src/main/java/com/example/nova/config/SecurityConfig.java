@@ -45,7 +45,8 @@ public class SecurityConfig {
     private final RateLimitingFilter rateLimitingFilter;
 
     private static final String[] PUBLIC_ENDPOINTS = {
-            "/api/auth/signup",
+            "/api/auth/signup/individual",
+            "/api/auth/signup/company",
             "/api/auth/login",
             "/api/auth/refresh-token",
             "/api/auth/mfa/verify",

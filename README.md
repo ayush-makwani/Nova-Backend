@@ -111,7 +111,8 @@ All request/response bodies are JSON.
 
 | Method | Path                     | Auth required | Description |
 |--------|---------------------------|:--:|-------------|
-| POST   | `/api/auth/signup`        | No  | Register a new account |
+| POST   | `/api/auth/signup/individual` | No | Register an Individual account (one user, one free companion) |
+| POST   | `/api/auth/signup/company`    | No | Register a Company/Team workspace + its first admin user (no companion is auto-created) |
 | POST   | `/api/auth/login`         | No  | Login with username + password. Returns tokens, or `mfaRequired: true` + `challengeToken` if MFA is enabled |
 | POST   | `/api/auth/mfa/verify`    | No  | Step 2 of login: submit `challengeToken` + 6-digit TOTP `code` to receive tokens |
 | POST   | `/api/auth/refresh-token` | No  | Exchange a valid refresh token for a new access + refresh token pair (rotation) |
@@ -128,16 +129,37 @@ All request/response bodies are JSON.
 
 SAML-specific endpoints (`/saml2/authenticate/{registrationId}`, `/login/saml2/sso/{registrationId}`, `/saml2/service-provider-metadata/{registrationId}`) are provided directly by Spring Security when SSO is enabled — see below.
 
-### Example: signup
+### Example: signup (Individual)
+
+A username isn't collected on this screen - one is derived from the email's
+local part (de-duplicated on collision) - and a free companion ("NOVA-1") is
+provisioned automatically as part of the 14-day trial.
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/signup \
+curl -X POST http://localhost:8111/api/auth/signup/individual \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "jdoe",
-    "email": "jdoe@example.com",
-    "fullName": "Jane Doe",
+    "name": "Jane Smith",
+    "email": "jane@example.com",
     "password": "Str0ng!Passw0rd"
+  }'
+```
+
+### Example: signup (Company / Team)
+
+Creates the company workspace and its first user, who is granted `ROLE_ADMIN`
+over it. No companion is created here - buy and assign one afterward via
+`POST /api/companions`.
+
+```bash
+curl -X POST http://localhost:8111/api/auth/signup/company \
+  -H "Content-Type: application/json" \
+  -d '{
+    "companyName": "LMS Solutions",
+    "companyDomain": "lmssolutions.com",
+    "adminName": "Jane Smith",
+    "adminEmail": "admin@lmssolutions.com",
+    "adminPassword": "Str0ng!Passw0rd"
   }'
 ```
 

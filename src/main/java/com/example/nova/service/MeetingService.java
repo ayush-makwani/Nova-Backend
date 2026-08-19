@@ -75,6 +75,9 @@ public class MeetingService {
     }
 
     /** Lists meetings a companion attended/is scheduled for, optionally narrowed to one project. */
+    // Meeting.companion is a lazy association; open-in-view is disabled, so the
+    // mapping to MeetingResponse must happen inside a transaction (see toResponse).
+    @Transactional(readOnly = true)
     public List<MeetingResponse> listForCompanion(User user, Long companionId, String project) {
         Companion companion = companionRepository.findByIdAndUser(companionId, user)
                 .orElseThrow(() -> new CompanionNotFoundException("Companion not found"));
@@ -87,6 +90,7 @@ public class MeetingService {
     }
 
     /** All of a user's meetings (across every companion) in a given calendar month, for the Meeting Calendar view. */
+    @Transactional(readOnly = true)
     public List<MeetingResponse> listForMonth(User user, int year, int month) {
         if (month < 1 || month > 12) {
             throw new InvalidCalendarRangeException("month must be between 1 and 12");
