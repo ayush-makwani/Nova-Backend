@@ -2,10 +2,12 @@ package com.example.nova.service;
 
 import com.example.nova.config.SecurityProperties;
 import com.example.nova.dto.*;
+import com.example.nova.entity.Company;
 import com.example.nova.entity.RefreshToken;
 import com.example.nova.entity.Role;
 import com.example.nova.entity.User;
 import com.example.nova.exception.*;
+import com.example.nova.repository.CompanyRepository;
 import com.example.nova.repository.UserRepository;
 import com.example.nova.security.JwtService;
 import io.jsonwebtoken.JwtException;
@@ -29,37 +31,98 @@ import java.util.Set;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
     private final MfaService mfaService;
     private final SecurityProperties securityProperties;
+    private final CompanionService companionService;
 
+    /** "Individual" account type: one user, one free companion, no company workspace. */
     @Transactional
-    public MessageResponse signup(SignupRequest request) {
-        // Basic validation beyond bean validation: uniqueness checks
-        if (userRepository.existsByUsername(request.getUsername())) {
-            throw new UserAlreadyExistsException("Username is already taken");
-        }
+    public MessageResponse signupIndividual(IndividualSignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new UserAlreadyExistsException("Email is already registered");
         }
 
         User user = User.builder()
-                .username(request.getUsername())
+                .username(generateUniqueUsername(request.getEmail()))
                 .email(request.getEmail())
-                .fullName(request.getFullName())
+                .fullName(request.getName())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .roles(Set.of(Role.ROLE_USER))
                 .enabled(true)
                 .accountNonLocked(true)
                 .mfaEnabled(false)
                 .build();
-
         userRepository.save(user);
-        log.info("New user registered: {}", user.getUsername());
+
+        companionService.provisionInitialCompanion(user);
+
+        log.info("New individual account registered: {}", user.getUsername());
         return new MessageResponse("Account created successfully. You can now log in.");
+    }
+
+    /**
+     * "Company / Team" account type: creates the company workspace and its first
+     * admin user. No companion is auto-provisioned here - the admin buys and
+     * assigns companions afterward via POST /api/companions.
+     */
+    @Transactional
+    public MessageResponse signupCompany(CompanySignupRequest request) {
+        String domain = request.getCompanyDomain().trim().toLowerCase();
+        if (companyRepository.existsByDomainIgnoreCase(domain)) {
+            throw new CompanyDomainAlreadyExistsException("A company is already registered with domain '" + domain + "'");
+        }
+        if (userRepository.existsByEmail(request.getAdminEmail())) {
+            throw new UserAlreadyExistsException("Email is already registered");
+        }
+
+        Company company = companyRepository.save(Company.builder()
+                .name(request.getCompanyName().trim())
+                .domain(domain)
+                .build());
+
+        User admin = User.builder()
+                .username(generateUniqueUsername(request.getAdminEmail()))
+                .email(request.getAdminEmail())
+                .fullName(request.getAdminName())
+                .password(passwordEncoder.encode(request.getAdminPassword()))
+                .roles(Set.of(Role.ROLE_ADMIN))
+                .company(company)
+                .enabled(true)
+                .accountNonLocked(true)
+                .mfaEnabled(false)
+                .build();
+        userRepository.save(admin);
+
+        log.info("New company workspace registered: '{}' ({}), admin '{}'", company.getName(), domain, admin.getUsername());
+        return new MessageResponse("Company workspace created successfully. You can now log in.");
+    }
+
+    /**
+     * The signup screens collect a name + email but no separate username, so one
+     * is derived from the email's local part and de-duplicated on collision.
+     */
+    private String generateUniqueUsername(String email) {
+        String localPart = email.substring(0, email.indexOf('@'))
+                .toLowerCase()
+                .replaceAll("[^a-z0-9._-]", "");
+        if (localPart.isBlank()) {
+            localPart = "user";
+        }
+        if (localPart.length() > 40) {
+            localPart = localPart.substring(0, 40);
+        }
+
+        String candidate = localPart;
+        int suffix = 1;
+        while (userRepository.existsByUsername(candidate)) {
+            candidate = localPart + suffix++;
+        }
+        return candidate;
     }
 
     @Transactional

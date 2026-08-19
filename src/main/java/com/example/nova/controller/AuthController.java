@@ -21,9 +21,14 @@ public class AuthController {
 
     private final AuthService authService;
 
-    @PostMapping("/signup")
-    public ResponseEntity<MessageResponse> signup(@Valid @RequestBody SignupRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.signup(request));
+    @PostMapping("/signup/individual")
+    public ResponseEntity<MessageResponse> signupIndividual(@Valid @RequestBody IndividualSignupRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.signupIndividual(request));
+    }
+
+    @PostMapping("/signup/company")
+    public ResponseEntity<MessageResponse> signupCompany(@Valid @RequestBody CompanySignupRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.signupCompany(request));
     }
 
     @PostMapping("/login")

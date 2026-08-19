@@ -44,6 +44,12 @@ public class User implements UserDetails {
     @Column(name = "full_name", length = 100)
     private String fullName;
 
+    // Nullable: only set for accounts created via the "Company / Team" signup
+    // flow. The admin who completes that flow gets ROLE_ADMIN over this workspace.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "company_id")
+    private Company company;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
