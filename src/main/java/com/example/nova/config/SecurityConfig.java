@@ -48,6 +48,8 @@ public class SecurityConfig {
             "/api/auth/signup/individual",
             "/api/auth/signup/company",
             "/api/auth/login",
+            "/api/auth/forgot-password",
+            "/api/auth/reset-password",
             "/api/auth/refresh-token",
             "/api/auth/mfa/verify",
             "/api/auth/sso/providers",

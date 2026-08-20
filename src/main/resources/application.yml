@@ -35,6 +35,27 @@ spring:
     deserialization:
       fail-on-unknown-properties: false
 
+  # ---------------------------------------------------------------------------
+  # Outbound mail for the forgot-password link (see service.EmailService).
+  # Defaults target a local SMTP catcher (e.g. MailHog/Mailpit on :1025) so
+  # forgot-password works out of the box in dev without real credentials;
+  # override via env vars for a real provider in production.
+  # ---------------------------------------------------------------------------
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:false}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS:false}
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
 # ---------------------------------------------------------------------------
 # OpenAPI / Swagger UI (see config.OpenApiConfig). Both paths are permitted
 # without authentication in SecurityConfig; individual operations still
@@ -99,6 +120,13 @@ app:
       # creation. True = creation requests are rejected (501) since a
       # payment provider is not integrated yet.
       enabled: ${COMPANIONS_PAYMENT_ENABLED:false}
+  password-reset:
+    token-expiration-minutes: 30
+    reset-link-base-url: ${PASSWORD_RESET_LINK_BASE_URL:http://localhost:3000/reset-password}
+    from-address: ${PASSWORD_RESET_FROM_ADDRESS:no-reply@nova.ai}
+  team-user:
+    # Placeholder login page linked from the welcome email; not wired to a real flow yet.
+    login-url: ${TEAM_USER_LOGIN_URL:http://localhost:3000/login}
 
 # ---------------------------------------------------------------------------
 # SAML 2.0 relying party registration(s) - required only if

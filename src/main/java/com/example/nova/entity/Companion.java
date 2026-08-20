@@ -47,6 +47,14 @@ public class Companion {
     @JoinColumn(name = "project_id")
     private Project project;
 
+    // Nullable: which team member this companion is paired with (Team Users
+    // screen, company accounts only). Distinct from `user` above, which is
+    // the purchasing/billing owner - for a company account that's always the
+    // admin, regardless of which team member the companion is assigned to.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_user_id")
+    private User assignedUser;
+
     @Column(name = "price_per_month", nullable = false, precision = 10, scale = 2)
     private BigDecimal pricePerMonth;
 

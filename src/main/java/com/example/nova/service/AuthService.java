@@ -39,6 +39,7 @@ public class AuthService {
     private final MfaService mfaService;
     private final SecurityProperties securityProperties;
     private final CompanionService companionService;
+    private final UsernameGenerator usernameGenerator;
 
     /** "Individual" account type: one user, one free companion, no company workspace. */
     @Transactional
@@ -48,7 +49,7 @@ public class AuthService {
         }
 
         User user = User.builder()
-                .username(generateUniqueUsername(request.getEmail()))
+                .username(usernameGenerator.generateUniqueUsername(request.getEmail()))
                 .email(request.getEmail())
                 .fullName(request.getName())
                 .password(passwordEncoder.encode(request.getPassword()))
@@ -86,7 +87,7 @@ public class AuthService {
                 .build());
 
         User admin = User.builder()
-                .username(generateUniqueUsername(request.getAdminEmail()))
+                .username(usernameGenerator.generateUniqueUsername(request.getAdminEmail()))
                 .email(request.getAdminEmail())
                 .fullName(request.getAdminName())
                 .password(passwordEncoder.encode(request.getAdminPassword()))
@@ -100,29 +101,6 @@ public class AuthService {
 
         log.info("New company workspace registered: '{}' ({}), admin '{}'", company.getName(), domain, admin.getUsername());
         return new MessageResponse("Company workspace created successfully. You can now log in.");
-    }
-
-    /**
-     * The signup screens collect a name + email but no separate username, so one
-     * is derived from the email's local part and de-duplicated on collision.
-     */
-    private String generateUniqueUsername(String email) {
-        String localPart = email.substring(0, email.indexOf('@'))
-                .toLowerCase()
-                .replaceAll("[^a-z0-9._-]", "");
-        if (localPart.isBlank()) {
-            localPart = "user";
-        }
-        if (localPart.length() > 40) {
-            localPart = localPart.substring(0, 40);
-        }
-
-        String candidate = localPart;
-        int suffix = 1;
-        while (userRepository.existsByUsername(candidate)) {
-            candidate = localPart + suffix++;
-        }
-        return candidate;
     }
 
     @Transactional
@@ -215,6 +193,34 @@ public class AuthService {
     public MessageResponse logoutAllDevices(User user) {
         refreshTokenService.revokeAllForUser(user);
         return new MessageResponse("Logged out from all devices");
+    }
+
+    /**
+     * Self-service password change for an already-authenticated user. Unlike
+     * forgot/reset-password, there is no enumeration risk here - the JWT
+     * already identifies the account - so the error can name the problem
+     * directly ("current password is incorrect") instead of staying generic.
+     */
+    @Transactional
+    public MessageResponse changePassword(User user, ChangePasswordRequest request) {
+        if (user.getPassword() == null) {
+            // SSO-provisioned account: nothing local to change.
+            throw new InvalidCurrentPasswordException("This account does not have a local password to change");
+        }
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new InvalidCurrentPasswordException("Current password is incorrect");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPasswordChangedAt(Instant.now());
+        userRepository.save(user);
+
+        // A password change should end every other active session, the same
+        // way a forgot-password reset does.
+        refreshTokenService.revokeAllForUser(user);
+
+        log.info("User '{}' changed their password", user.getUsername());
+        return new MessageResponse("Password changed successfully.");
     }
 
     // ------------------------------------------------------------------

@@ -1,6 +1,7 @@
 package com.example.nova.service;
 
 import com.example.nova.config.CompanionProperties;
+import com.example.nova.dto.CompanionOptionResponse;
 import com.example.nova.dto.CompanionResponse;
 import com.example.nova.dto.CompanionSettingsResponse;
 import com.example.nova.dto.CreateCompanionRequest;
@@ -21,6 +22,7 @@ import com.example.nova.repository.CompanionRepository;
 import com.example.nova.repository.VoiceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -137,6 +139,27 @@ public class CompanionService {
                 .build();
 
         return companionRepository.save(companion);
+    }
+
+    /**
+     * Companions across the whole company (however many admins may have
+     * bought them) not yet paired with a team member - the pool of options
+     * for the "Team Users" screen's companion-assignment dropdown.
+     */
+    @Transactional(readOnly = true)
+    public List<CompanionOptionResponse> listUnassignedCompanionOptions(User admin) {
+        if (admin.getCompany() == null) {
+            // ROLE_ADMIN is only ever granted via company signup, so this
+            // shouldn't be reachable - defensive guard, not a real user path.
+            throw new AccessDeniedException("Only company admins can view unassigned companions");
+        }
+        return companionRepository.findAllByUser_CompanyAndAssignedUserIsNullOrderBySeatNumberAsc(admin.getCompany()).stream()
+                .map(companion -> CompanionOptionResponse.builder()
+                        .id(companion.getId())
+                        .name(companion.getName())
+                        .email(companion.getEmail())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     private String uniqueCompanionEmail(String localPart, String domainSlug) {

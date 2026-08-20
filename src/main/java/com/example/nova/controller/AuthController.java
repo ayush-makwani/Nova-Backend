@@ -3,6 +3,7 @@ package com.example.nova.controller;
 import com.example.nova.dto.*;
 import com.example.nova.entity.User;
 import com.example.nova.service.AuthService;
+import com.example.nova.service.PasswordResetService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/signup/individual")
     public ResponseEntity<MessageResponse> signupIndividual(@Valid @RequestBody IndividualSignupRequest request) {
@@ -58,6 +60,28 @@ public class AuthController {
     @PostMapping("/logout-all")
     public ResponseEntity<MessageResponse> logoutAll(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(authService.logoutAllDevices(user));
+    }
+
+    /** Self-service password change for the currently authenticated user. */
+    @PostMapping("/change-password")
+    public ResponseEntity<MessageResponse> changePassword(@AuthenticationPrincipal User user,
+                                                            @Valid @RequestBody ChangePasswordRequest request) {
+        return ResponseEntity.ok(authService.changePassword(user, request));
+    }
+
+    // ------------------------------------------------------------------
+    // Forgot / reset password
+    // ------------------------------------------------------------------
+
+    /** Always returns the same generic response, whether or not the email is registered. */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<MessageResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        return ResponseEntity.ok(passwordResetService.forgotPassword(request));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<MessageResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        return ResponseEntity.ok(passwordResetService.resetPassword(request));
     }
 
     // ------------------------------------------------------------------
