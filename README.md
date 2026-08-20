@@ -27,8 +27,8 @@ input validation, backed by MySQL.
 - **Account lockout** — accounts lock automatically after N failed login attempts (default 5) for a configurable duration (default 15 min), then self-unlock.
 - **Rate limiting** — per-IP token bucket on `/login`, `/signup`, `/refresh-token`, `/mfa/verify` to slow brute-force/credential-stuffing.
 - **Password policy** — enforced via bean validation regex: 10+ chars, upper+lower+digit+special character.
-- **Strict input validation** — `@Valid` DTOs for signup/login (username format, email format, length limits), centralised `GlobalExceptionHandler` returning consistent, non-leaky error bodies.
-- **Generic authentication errors** — login never reveals whether the username or password was wrong (`hideUserNotFoundExceptions`, uniform "Invalid username or password" message) to prevent user enumeration.
+- **Strict input validation** — `@Valid` DTOs for signup/login (email format, length limits), centralised `GlobalExceptionHandler` returning consistent, non-leaky error bodies.
+- **Generic authentication errors** — login never reveals whether the email or password was wrong (`hideUserNotFoundExceptions`, uniform "Invalid email or password" message) to prevent user enumeration.
 - **Security HTTP headers** — HSTS (preload, includeSubDomains), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, Content-Security-Policy, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener/Resource-Policy.
 - **CORS** — explicit allow-list configured via `app.security.cors.allowed-origins`, not `*`.
 - **CSRF** — disabled deliberately because the API is stateless and uses a bearer token sent in a custom header (not a cookie), which is CSRF-immune by design; documented in code.
@@ -113,7 +113,7 @@ All request/response bodies are JSON.
 |--------|---------------------------|:--:|-------------|
 | POST   | `/api/auth/signup/individual` | No | Register an Individual account (one user, one free companion) |
 | POST   | `/api/auth/signup/company`    | No | Register a Company/Team workspace + its first admin user (no companion is auto-created) |
-| POST   | `/api/auth/login`         | No  | Login with username + password. Returns tokens, or `mfaRequired: true` + `challengeToken` if MFA is enabled |
+| POST   | `/api/auth/login`         | No  | Login with email + password. Returns tokens, or `mfaRequired: true` + `challengeToken` if MFA is enabled |
 | POST   | `/api/auth/mfa/verify`    | No  | Step 2 of login: submit `challengeToken` + 6-digit TOTP `code` to receive tokens |
 | POST   | `/api/auth/refresh-token` | No  | Exchange a valid refresh token for a new access + refresh token pair (rotation) |
 | POST   | `/api/auth/forgot-password` | No | Email a one-time reset link if the address is registered. Always returns the same generic response |
@@ -139,8 +139,11 @@ SAML-specific endpoints (`/saml2/authenticate/{registrationId}`, `/login/saml2/s
 
 ### Example: signup (Individual)
 
-A username isn't collected on this screen - one is derived from the email's
-local part (de-duplicated on collision) - and a free companion ("NOVA-1") is
+There's no username field anywhere in this API - accounts are identified and
+authenticated by email. An internal username is still derived from the
+email's local part (de-duplicated on collision) purely as an implementation
+detail (JWT subject, companion identity email domain, etc.) and never
+appears in any request or response. A free companion ("NOVA-1") is
 provisioned automatically as part of the 14-day trial.
 
 ```bash
@@ -174,9 +177,9 @@ curl -X POST http://localhost:8111/api/auth/signup/company \
 ### Example: login (no MFA)
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/login \
+curl -X POST http://localhost:8111/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{ "username": "jdoe", "password": "Str0ng!Passw0rd" }'
+  -d '{ "email": "jane@example.com", "password": "Str0ng!Passw0rd" }'
 ```
 
 Response:
@@ -193,9 +196,9 @@ Response:
 ### Example: login (MFA enabled)
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/login \
+curl -X POST http://localhost:8111/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{ "username": "jdoe", "password": "Str0ng!Passw0rd" }'
+  -d '{ "email": "jane@example.com", "password": "Str0ng!Passw0rd" }'
 # -> { "mfaRequired": true, "challengeToken": "eyJhbGciOi..." }
 
 curl -X POST http://localhost:8080/api/auth/mfa/verify \
@@ -424,10 +427,10 @@ than putting real, long-lived tokens in a browser-visible redirect URL.
   attributes populate the new user's profile.
 - SSO-provisioned accounts have `password = null` and cannot log in via
   `POST /api/auth/login` — that endpoint rejects them with the same generic
-  "Invalid username or password" response used for any bad credentials
+  "Invalid email or password" response used for any bad credentials
   (`AuthService.login`), and deliberately does **not** count it as a failed
   attempt, so a script can't lock an SSO user out of their real login path by
-  guessing passwords against their username.
+  guessing passwords against their email.
 
 ### Limitations / not implemented
 

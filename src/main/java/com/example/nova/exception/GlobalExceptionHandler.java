@@ -168,7 +168,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleAuth(AuthenticationException ex, HttpServletRequest request) {
         // Deliberately generic message to avoid user enumeration
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(body(HttpStatus.UNAUTHORIZED, "Invalid username or password", request, null));
+                .body(body(HttpStatus.UNAUTHORIZED, "Invalid email or password", request, null));
     }
 
     @ExceptionHandler(Exception.class)
