@@ -1,5 +1,6 @@
 package com.example.nova.controller;
 
+import com.example.nova.dto.CompanionOptionResponse;
 import com.example.nova.dto.CompanionResponse;
 import com.example.nova.dto.CompanionSettingsResponse;
 import com.example.nova.dto.CreateCompanionRequest;
@@ -15,6 +16,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,6 +39,13 @@ public class CompanionController {
     @GetMapping
     public ResponseEntity<List<CompanionResponse>> listCompanions(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(companionService.listCompanions(user));
+    }
+
+    /** Company admins only - companions across the company not yet paired with a team member (Team Users dropdown). */
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/unassigned")
+    public ResponseEntity<List<CompanionOptionResponse>> listUnassignedCompanionOptions(@AuthenticationPrincipal User admin) {
+        return ResponseEntity.ok(companionService.listUnassignedCompanionOptions(admin));
     }
 
     @GetMapping("/{id}/settings")

@@ -116,8 +116,11 @@ All request/response bodies are JSON.
 | POST   | `/api/auth/login`         | No  | Login with username + password. Returns tokens, or `mfaRequired: true` + `challengeToken` if MFA is enabled |
 | POST   | `/api/auth/mfa/verify`    | No  | Step 2 of login: submit `challengeToken` + 6-digit TOTP `code` to receive tokens |
 | POST   | `/api/auth/refresh-token` | No  | Exchange a valid refresh token for a new access + refresh token pair (rotation) |
+| POST   | `/api/auth/forgot-password` | No | Email a one-time reset link if the address is registered. Always returns the same generic response |
+| POST   | `/api/auth/reset-password`  | No | Set a new password using the token from the reset link (single-use, expires after 30 min) |
 | POST   | `/api/auth/logout`        | No  | Revoke a single refresh token |
 | POST   | `/api/auth/logout-all`    | Yes | Revoke every refresh token for the current user (all devices) |
+| POST   | `/api/auth/change-password` | Yes | Change password given the current password + new password + confirmation. Revokes every other session |
 | POST   | `/api/auth/mfa/setup`     | Yes | Generate a new TOTP secret + QR code for enrolment |
 | POST   | `/api/auth/mfa/enable`    | Yes | Confirm enrolment by submitting a valid code; enables MFA |
 | POST   | `/api/auth/mfa/disable`   | Yes | Disable MFA on the account |
@@ -126,6 +129,9 @@ All request/response bodies are JSON.
 | GET    | `/api/admin/dashboard`    | Yes (ROLE_ADMIN) | Example role-restricted endpoint |
 | GET    | `/api/auth/sso/providers` | No  | List configured SAML identity providers (empty if SSO is disabled) |
 | POST   | `/api/auth/sso/exchange`  | No  | Step 2 of SSO login: trade the one-time `code` from the SAML redirect for real tokens |
+| POST   | `/api/team-users`         | Yes (ROLE_ADMIN) | Add a user to the admin's own company workspace; emails them the temp password + a login link |
+| GET    | `/api/team-users`         | Yes (ROLE_ADMIN) | List the admin's company, each user with whichever companion (if any) they're paired with |
+| GET    | `/api/companions/unassigned` | Yes (ROLE_ADMIN) | Companions across the company not yet paired with a team member - the "Team Users" assignment dropdown |
 
 SAML-specific endpoints (`/saml2/authenticate/{registrationId}`, `/login/saml2/sso/{registrationId}`, `/saml2/service-provider-metadata/{registrationId}`) are provided directly by Spring Security when SSO is enabled — see below.
 
@@ -203,6 +209,120 @@ curl -X POST http://localhost:8080/api/auth/refresh-token \
   -H "Content-Type: application/json" \
   -d '{ "refreshToken": "9f3c..." }'
 ```
+
+### Example: forgot / reset password
+
+```bash
+curl -X POST http://localhost:8111/api/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "jane@example.com" }'
+# -> always the same message, whether or not that email is registered:
+# { "message": "If an account exists for that email, a password reset link has been sent." }
+```
+
+If the account exists (and has a local password - not SSO-only), an email is
+sent with a link like `http://localhost:3000/reset-password?token=<token>`.
+The frontend collects a new password on that page and calls:
+
+```bash
+curl -X POST http://localhost:8111/api/auth/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{ "token": "<token from the email link>", "newPassword": "N3w!Str0ngPassw0rd" }'
+```
+
+The token is single-use and expires after `app.password-reset.token-expiration-minutes`
+(default 30). A successful reset also revokes every refresh token on the
+account, signing out all other sessions. See
+[`PasswordResetService`](src/main/java/com/example/nova/service/PasswordResetService.java)
+and [`EmailService`](src/main/java/com/example/nova/service/EmailService.java).
+
+Outbound mail is configured via `spring.mail.*` (see `application.yml`); it
+defaults to a local SMTP catcher (`localhost:1025`, e.g.
+[MailHog](https://github.com/mailhog/MailHog)/[Mailpit](https://github.com/axllent/mailpit))
+so this works out of the box in dev - override `MAIL_HOST`/`MAIL_PORT`/`MAIL_USERNAME`/`MAIL_PASSWORD`
+for a real provider in production. Delivery failures never change the API
+response (see the enumeration-prevention comment in `PasswordResetService`),
+so check the logs if an email doesn't arrive - `PasswordResetService` also
+logs the raw reset link at `DEBUG` for local testing without any SMTP setup.
+
+### Example: change password
+
+Requires a valid access token (unlike forgot/reset-password, which are for a
+user who's locked out). `newPassword` must match `confirmPassword` and differ
+from `currentPassword`, or the request fails validation before anything is checked.
+
+```bash
+curl -X POST http://localhost:8111/api/auth/change-password \
+  -H "Authorization: Bearer eyJhbGciOi..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "currentPassword": "Str0ng!Passw0rd",
+    "newPassword": "N3w!Str0ngPassw0rd",
+    "confirmPassword": "N3w!Str0ngPassw0rd"
+  }'
+```
+
+An incorrect `currentPassword` returns `401`. Since the request is already
+authenticated, there's no enumeration risk in saying so directly - unlike
+login, this isn't a generic "invalid credentials" message. A successful
+change also revokes every refresh token on the account, same as
+forgot/reset-password.
+
+### Example: add a team user (Company/Team accounts)
+
+Company-admin only ("Team Users" screen). The admin sets the temp password
+directly; it's emailed to the new user along with a placeholder login link
+(`app.team-user.login-url` - not wired to a real flow yet). No username field
+exists on this form either, so one is derived the same way as at signup.
+Companion assignment isn't part of this call - it's a separate step, one
+companion per user.
+
+```bash
+curl -X POST http://localhost:8111/api/team-users \
+  -H "Authorization: Bearer <company admin's access token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fullName": "Jane Smith",
+    "email": "jane@company.com",
+    "tempPassword": "Temp0rary!Pass"
+  }'
+```
+
+A non-admin (or an admin without a company - unreachable in practice, since
+`ROLE_ADMIN` is only ever granted via company signup) gets `403`.
+
+### Example: Team Users table + companion-assignment dropdown
+
+```bash
+curl http://localhost:8111/api/team-users \
+  -H "Authorization: Bearer <company admin's access token>"
+```
+
+```json
+[
+  { "id": 1, "username": "admin", "fullName": "LMS Admin", "email": "admin@lmssolutions.com",
+    "roles": ["ROLE_ADMIN"], "currentUser": true,
+    "companionId": 1, "companionName": "NOVA-1", "companionEmail": "nova-1@lmssolutions.nova.ai", "createdAt": "..." },
+  { "id": 2, "username": "sarah.k", "fullName": "Sarah K.", "email": "sarah@lmssolutions.com",
+    "roles": ["ROLE_USER"], "currentUser": false,
+    "companionId": 2, "companionName": "NOVA-2", "companionEmail": "nova-2@lmssolutions.nova.ai", "createdAt": "..." }
+]
+```
+
+`companionId`/`companionName`/`companionEmail` are `null` for a user with
+nothing assigned yet. To populate the dropdown's other options (the pool to
+assign *from* - companions not yet paired with anyone):
+
+```bash
+curl http://localhost:8111/api/companions/unassigned \
+  -H "Authorization: Bearer <company admin's access token>"
+# -> [ { "id": 3, "name": "NOVA-3", "email": "nova-3@lmssolutions.nova.ai" } ]
+```
+
+Note: there's no endpoint yet to actually *set* the assignment (the dropdown's
+`onChange`) - only these two read/list endpoints were requested. The
+`assignedUser` relationship exists on `Companion` and is ready for a
+`PATCH /api/team-users/{id}/companion`-style endpoint whenever that's needed.
 
 ### Example: calling a protected endpoint
 

@@ -38,7 +38,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             "/api/auth/signup/company",
             "/api/auth/refresh-token",
             "/api/auth/mfa/verify",
-            "/api/auth/sso/exchange"
+            "/api/auth/sso/exchange",
+            // forgot-password: prevents mass-email abuse and slows account-existence probing
+            "/api/auth/forgot-password",
+            "/api/auth/reset-password"
     };
 
     @Override

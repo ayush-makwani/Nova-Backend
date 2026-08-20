@@ -1,6 +1,7 @@
 package com.example.nova.repository;
 
 import com.example.nova.entity.Companion;
+import com.example.nova.entity.Company;
 import com.example.nova.entity.Project;
 import com.example.nova.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,4 +23,10 @@ public interface CompanionRepository extends JpaRepository<Companion, Long> {
 
     /** Oldest companion not yet linked to any project - used to auto-assign a companion when a project is created. */
     Optional<Companion> findFirstByUserAndProjectIsNullOrderBySeatNumberAsc(User user);
+
+    /** The companion a team member is paired with, if any (Team Users screen). */
+    Optional<Companion> findByAssignedUser(User assignedUser);
+
+    /** Every companion owned across a company (by whoever purchased it) not yet paired with a team member. */
+    List<Companion> findAllByUser_CompanyAndAssignedUserIsNullOrderBySeatNumberAsc(Company company);
 }

@@ -4,7 +4,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.AuthenticationException;
@@ -51,6 +53,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleTokenRefresh(TokenRefreshException ex,
                                                                     HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body(HttpStatus.FORBIDDEN, ex.getMessage(), request, null));
+    }
+
+    @ExceptionHandler(InvalidPasswordResetTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidPasswordResetToken(InvalidPasswordResetTokenException ex,
+                                                                                  HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body(HttpStatus.FORBIDDEN, ex.getMessage(), request, null));
+    }
+
+    @ExceptionHandler(InvalidCurrentPasswordException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidCurrentPassword(InvalidCurrentPasswordException ex,
+                                                                                HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body(HttpStatus.UNAUTHORIZED, ex.getMessage(), request, null));
     }
 
     @ExceptionHandler(InvalidMfaCodeException.class)
@@ -123,6 +137,19 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handlePaymentNotSupported(PaymentNotSupportedException ex,
                                                                            HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(body(HttpStatus.NOT_IMPLEMENTED, ex.getMessage(), request, null));
+    }
+
+    /**
+     * Spring MVC resolves @ExceptionHandler methods before an exception ever
+     * reaches the security filter chain's AccessDeniedHandler, so without this,
+     * @PreAuthorize denials (AuthorizationDeniedException, the modern
+     * AuthorizationManager-based replacement for AccessDeniedException) would
+     * fall through to the generic 500 handler below instead of a 403.
+     */
+    @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(Exception ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(body(HttpStatus.FORBIDDEN, "You do not have permission to access this resource", request, null));
     }
 
     @ExceptionHandler({BadCredentialsException.class, LockedException.class, DisabledException.class, AuthenticationException.class})
