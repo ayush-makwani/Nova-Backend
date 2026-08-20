@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Pulls in Spring Boot's standard CONSOLE_LOG_PATTERN / FILE_LOG_PATTERN
+         property definitions, without inheriting its default appender wiring -
+         that's done explicitly below so the file appender can use a pure
+         date-named rolling policy instead of Boot's static-current-filename one. -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <springProperty scope="context" name="LOG_DIR" source="app.logging.dir" defaultValue="logs"/>
+    <springProperty scope="context" name="LOG_RETENTION_DAYS" source="app.logging.retention-days" defaultValue="3"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!--
+      No <file> element: with only a fileNamePattern, Logback names *today's*
+      active log directly from the pattern (nova-app-2026-08-20.log from the
+      moment the app starts, not just after the first midnight rollover).
+      maxHistory + cleanHistoryOnStart delete anything older than the
+      retention window automatically, both on rollover and on every startup.
+    -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/nova-app-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>${LOG_RETENTION_DAYS}</maxHistory>
+            <totalSizeCap>500MB</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+    <!-- logging.level.* in application.yml still applies on top of this file. -->
+</configuration>
