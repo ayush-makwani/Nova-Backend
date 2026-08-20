@@ -30,4 +30,9 @@ public class CreateProjectRequest {
     // S3 object key for an already-uploaded voice-note recording (not a full URL) - "Voice Note" in step 2.
     @Size(max = 500)
     private String voiceNoteKey;
+
+    // Optional: link an existing companion to this project at creation time.
+    // Omit to create the project without one; the same companion may already
+    // be linked to other projects.
+    private Long companionId;
 }
