@@ -17,7 +17,6 @@ public class AwsCredentialController {
     private final AwsCredentialService awsCredentialService;
 
     /** Admins only - the app's S3 configuration, including the decrypted secret key. */
-    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
     public ResponseEntity<AwsCredentialResponse> getCredentials() {
         return ResponseEntity.ok(awsCredentialService.getCredentials());

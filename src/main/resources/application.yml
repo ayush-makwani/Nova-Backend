@@ -132,6 +132,12 @@ app:
     # rest (see service.AwsCredentialEncryptionService). OVERRIDE in production
     # via env var! Generate one with: openssl rand -base64 32
     encryption-key: ${AWS_CREDENTIAL_ENCRYPTION_KEY:KrjRqJEbGC2SbPuKMnH+djF7KHHdQx4JKiaBJZ5w7nU=}
+  logging:
+    # File logging (see logback-spring.xml). Console logging is unaffected -
+    # this only adds a rolling file appender: one file per calendar day, kept
+    # for retention-days days and then deleted automatically by Logback.
+    dir: ${LOG_DIR:logs}
+    retention-days: ${LOG_RETENTION_DAYS:3}
 
 # ---------------------------------------------------------------------------
 # SAML 2.0 relying party registration(s) - required only if
