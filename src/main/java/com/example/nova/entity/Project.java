@@ -41,10 +41,20 @@ public class Project {
     @Column(name = "text_context", length = 5000)
     private String textContext;
 
-    // Placeholder until document/voice-note upload is implemented; a future context-file API increments this.
-    @Column(name = "context_files_count", nullable = false)
+    // S3 object keys for documents uploaded in step 2 ("Add Context") - not
+    // full URLs; resolve against AwsCredential's bucket/url when the actual
+    // file is needed. The upload itself happens elsewhere (out of scope here);
+    // this just links already-uploaded keys to the project at creation time.
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "project_document_keys", joinColumns = @JoinColumn(name = "project_id"))
+    @OrderColumn(name = "key_order")
+    @Column(name = "document_key", length = 500)
     @Builder.Default
-    private int contextFilesCount = 0;
+    private List<String> documentKeys = new ArrayList<>();
+
+    // Nullable: S3 object key for the recorded voice-note overview, if any (same "not a full URL" caveat as above).
+    @Column(name = "voice_note_key", length = 500)
+    private String voiceNoteKey;
 
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
