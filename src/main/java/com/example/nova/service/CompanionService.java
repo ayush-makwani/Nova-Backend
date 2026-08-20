@@ -97,9 +97,13 @@ public class CompanionService {
     // is disabled, so the mapping to CompanionResponse must happen inside a
     // transaction or these throw LazyInitializationException once the
     // controller serializes the result outside Hibernate's session.
+    //
+    // Includes companions the user owns/purchased AND whichever companion is
+    // assigned to them via the Team Users screen - a company team member who
+    // never bought a companion themselves would otherwise see an empty list.
     @Transactional(readOnly = true)
     public List<CompanionResponse> listCompanions(User user) {
-        return companionRepository.findAllByUserOrderByCreatedAtAsc(user).stream()
+        return companionRepository.findAllByUserOrAssignedUserOrderByCreatedAtAsc(user, user).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -251,6 +255,7 @@ public class CompanionService {
                 .email(companion.getEmail())
                 .voice(companion.getVoice().getName())
                 .project(companion.getProject() != null ? companion.getProject().getName() : null)
+                .assignedUserId(companion.getAssignedUser() != null ? companion.getAssignedUser().getId() : null)
                 .status(companion.getStatus())
                 .presenceStatus(companion.getPresenceStatus())
                 .meetingsCount(companion.getMeetingsCount())

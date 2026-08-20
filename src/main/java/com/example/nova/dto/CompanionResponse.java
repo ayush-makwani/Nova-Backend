@@ -19,6 +19,7 @@ public class CompanionResponse {
     private String email;
     private String voice;
     private String project; // null -> shown as "Unassigned"
+    private Long assignedUserId; // null -> not paired with a team member (Team Users screen)
     private CompanionStatus status;
     private CompanionPresenceStatus presenceStatus;
     private int meetingsCount;
