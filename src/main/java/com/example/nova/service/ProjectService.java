@@ -47,6 +47,9 @@ public class ProjectService {
         List<String> tags = request.getTags() == null
                 ? new ArrayList<>()
                 : request.getTags().stream().map(String::trim).collect(Collectors.toList());
+        List<String> documentKeys = request.getDocumentKeys() == null
+                ? new ArrayList<>()
+                : request.getDocumentKeys().stream().map(String::trim).collect(Collectors.toList());
 
         Project project = Project.builder()
                 .user(user)
@@ -54,7 +57,8 @@ public class ProjectService {
                 .description(request.getDescription() != null ? request.getDescription().trim() : null)
                 .tags(tags)
                 .textContext(request.getTextContext() != null ? request.getTextContext().trim() : null)
-                .contextFilesCount(0)
+                .documentKeys(documentKeys)
+                .voiceNoteKey(request.getVoiceNoteKey() != null ? request.getVoiceNoteKey().trim() : null)
                 .build();
         project = projectRepository.save(project);
 
@@ -102,7 +106,9 @@ public class ProjectService {
                 .companionName(companion != null ? companion.getName() : null)
                 .companionPresenceStatus(companion != null ? companion.getPresenceStatus() : null)
                 .meetingsCount(meetingsCount)
-                .contextFilesCount(project.getContextFilesCount())
+                .contextFilesCount(project.getDocumentKeys().size())
+                .documentKeys(project.getDocumentKeys())
+                .voiceNoteKey(project.getVoiceNoteKey())
                 .lastMeetingAt(lastMeetingAt)
                 .createdAt(project.getCreatedAt())
                 .build();

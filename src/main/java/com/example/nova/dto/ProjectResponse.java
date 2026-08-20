@@ -20,7 +20,9 @@ public class ProjectResponse {
     private String companionName;
     private CompanionPresenceStatus companionPresenceStatus;
     private int meetingsCount;
-    private int contextFilesCount;
+    private int contextFilesCount; // derived: documentKeys.size()
+    private List<String> documentKeys;
+    private String voiceNoteKey; // null if no voice note was recorded
     private Instant lastMeetingAt; // null if the companion hasn't attended a meeting yet
     private Instant createdAt;
 }

@@ -109,8 +109,9 @@ CREATE TABLE IF NOT EXISTS projects (
     description           VARCHAR(2000) NULL,
     -- Free-form context pasted in step 2 ("Add Context") for the companion to read before its first meeting.
     text_context          VARCHAR(5000) NULL,
-    -- Placeholder until document/voice-note upload is implemented.
-    context_files_count   INT NOT NULL DEFAULT 0,
+    -- Nullable: S3 object key for the recorded voice-note overview, if any.
+    -- Not a full URL - resolve against AwsCredential's bucket/url when needed.
+    voice_note_key        VARCHAR(500) NULL,
     created_at            TIMESTAMP NULL,
     CONSTRAINT fk_projects_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -123,6 +124,16 @@ CREATE TABLE IF NOT EXISTS project_tags (
     tag_order   INT NOT NULL,
     PRIMARY KEY (project_id, tag_order),
     CONSTRAINT fk_project_tags_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+-- S3 object keys for documents uploaded in step 2 ("Add Context") - not full
+-- URLs; the upload itself happens elsewhere, this just links keys to the project.
+CREATE TABLE IF NOT EXISTS project_document_keys (
+    project_id     BIGINT NOT NULL,
+    document_key   VARCHAR(500) NOT NULL,
+    key_order      INT NOT NULL,
+    PRIMARY KEY (project_id, key_order),
+    CONSTRAINT fk_project_document_keys_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS companions (
