@@ -91,6 +91,18 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(body(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), request, null));
     }
 
+    @ExceptionHandler(AwsCredentialNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleAwsCredentialNotFound(AwsCredentialNotFoundException ex,
+                                                                              HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body(HttpStatus.NOT_FOUND, ex.getMessage(), request, null));
+    }
+
+    @ExceptionHandler(TeamUserNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleTeamUserNotFound(TeamUserNotFoundException ex,
+                                                                          HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body(HttpStatus.NOT_FOUND, ex.getMessage(), request, null));
+    }
+
     @ExceptionHandler(CompanionNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleCompanionNotFound(CompanionNotFoundException ex,
                                                                           HttpServletRequest request) {

@@ -29,4 +29,7 @@ public interface CompanionRepository extends JpaRepository<Companion, Long> {
 
     /** Every companion owned across a company (by whoever purchased it) not yet paired with a team member. */
     List<Companion> findAllByUser_CompanyAndAssignedUserIsNullOrderBySeatNumberAsc(Company company);
+
+    /** Scoped lookup so an admin can never assign a companion owned outside their own company. */
+    Optional<Companion> findByIdAndUser_Company(Long id, Company company);
 }

@@ -5,6 +5,8 @@ import com.example.nova.dto.TeamUserResponse;
 import com.example.nova.entity.Companion;
 import com.example.nova.entity.Role;
 import com.example.nova.entity.User;
+import com.example.nova.exception.CompanionNotFoundException;
+import com.example.nova.exception.TeamUserNotFoundException;
 import com.example.nova.exception.UserAlreadyExistsException;
 import com.example.nova.repository.CompanionRepository;
 import com.example.nova.repository.UserRepository;
@@ -72,6 +74,41 @@ public class TeamUserService {
         return userRepository.findAllByCompanyOrderByCreatedAtAsc(admin.getCompany()).stream()
                 .map(teamUser -> toResponse(teamUser, admin, companionRepository.findByAssignedUser(teamUser).orElse(null)))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Pairs a company-owned, currently-unassigned companion with a team member
+     * (the "Team Users" dropdown). Per the screen's own copy: each user holds
+     * at most one companion, so (a) if this user already held a different one,
+     * it's freed back to the pool, and (b) if the target companion was already
+     * held by someone else, overwriting its assignedUser is exactly what
+     * "unassigns it from the previous holder" means - a companion can only
+     * ever point at one user at a time.
+     */
+    @Transactional
+    public TeamUserResponse assignCompanion(User admin, Long teamUserId, Long companionId) {
+        requireCompanyAdmin(admin);
+
+        User teamUser = userRepository.findByIdAndCompany(teamUserId, admin.getCompany())
+                .orElseThrow(() -> new TeamUserNotFoundException("User not found"));
+
+        Companion companion = companionRepository.findByIdAndUser_Company(companionId, admin.getCompany())
+                .orElseThrow(() -> new CompanionNotFoundException("Companion not found"));
+
+        companionRepository.findByAssignedUser(teamUser)
+                .filter(current -> !current.getId().equals(companion.getId()))
+                .ifPresent(current -> {
+                    current.setAssignedUser(null);
+                    companionRepository.save(current);
+                });
+
+        companion.setAssignedUser(teamUser);
+        companionRepository.save(companion);
+
+        log.info("Admin '{}' assigned companion '{}' to user '{}'",
+                admin.getUsername(), companion.getName(), teamUser.getUsername());
+
+        return toResponse(teamUser, admin, companion);
     }
 
     private void requireCompanyAdmin(User admin) {
