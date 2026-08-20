@@ -98,7 +98,7 @@ public class JwtService {
 
     // ------------------------------------------------------------------
     // Short-lived MFA "challenge" token: proves the user already supplied
-    // correct username+password, without granting any API access, while
+    // correct email+password, without granting any API access, while
     // they complete the second authentication factor.
     // ------------------------------------------------------------------
     private static final long MFA_CHALLENGE_EXPIRATION_MS = 2 * 60 * 1000; // 2 minutes

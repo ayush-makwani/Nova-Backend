@@ -141,7 +141,7 @@ public class SecurityConfig {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
-        // Do not reveal whether it was the username or the password that was wrong
+        // Do not reveal whether it was the email or the password that was wrong
         provider.setHideUserNotFoundExceptions(true);
         return provider;
     }

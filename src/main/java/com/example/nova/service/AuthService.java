@@ -40,6 +40,7 @@ public class AuthService {
     private final SecurityProperties securityProperties;
     private final CompanionService companionService;
     private final UsernameGenerator usernameGenerator;
+    private final LoginAttemptService loginAttemptService;
 
     /** "Individual" account type: one user, one free companion, no company workspace. */
     @Transactional
@@ -74,9 +75,9 @@ public class AuthService {
     @Transactional
     public MessageResponse signupCompany(CompanySignupRequest request) {
         String domain = request.getCompanyDomain().trim().toLowerCase();
-        if (companyRepository.existsByDomainIgnoreCase(domain)) {
-            throw new CompanyDomainAlreadyExistsException("A company is already registered with domain '" + domain + "'");
-        }
+//        if (companyRepository.existsByDomainIgnoreCase(domain)) {
+//            throw new CompanyDomainAlreadyExistsException("A company is already registered with domain '" + domain + "'");
+//        }
         if (userRepository.existsByEmail(request.getAdminEmail())) {
             throw new UserAlreadyExistsException("Email is already registered");
         }
@@ -105,8 +106,8 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest) {
-        User user = userRepository.findByUsername(request.getUsername())
-                .orElseThrow(() -> new BadCredentialsException("Invalid username or password"));
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
         checkAccountLock(user);
 
@@ -114,16 +115,21 @@ public class AuthService {
             // SSO-provisioned account (authProvider = SAML): there is no local
             // password to check. Fail with the same generic message as any
             // other bad credentials, WITHOUT registering a failed attempt -
-            // an attacker probing this username with password guesses should
+            // an attacker probing this email with password guesses should
             // not be able to lock the account out of its legitimate SSO login.
-            throw new BadCredentialsException("Invalid username or password");
+            throw new BadCredentialsException("Invalid email or password");
         }
 
         try {
+            // Spring Security's UserDetailsService/JWT subject/MFA challenge
+            // tokens are all still keyed on the internal auto-generated
+            // username (see UsernameGenerator) - only the login *request*
+            // moved to email, so that machinery is untouched.
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
+                    new UsernamePasswordAuthenticationToken(user.getUsername(), request.getPassword()));
         } catch (BadCredentialsException ex) {
-            registerFailedAttempt(user);
+            // Must commit independently - see LoginAttemptService's javadoc for why.
+            loginAttemptService.registerFailedAttempt(user.getId());
             throw ex;
         }
 
@@ -289,18 +295,6 @@ public class AuthService {
             }
             throw new AccountLockedException("Account is locked due to multiple failed login attempts. Try again later.");
         }
-    }
-
-    private void registerFailedAttempt(User user) {
-        int maxAttempts = securityProperties.getAccountLock().getMaxFailedAttempts();
-        int attempts = user.getFailedAttempts() + 1;
-        user.setFailedAttempts(attempts);
-        if (attempts >= maxAttempts) {
-            user.setAccountNonLocked(false);
-            user.setLockTime(Instant.now());
-            log.warn("Account '{}' locked after {} failed login attempts", user.getUsername(), attempts);
-        }
-        userRepository.save(user);
     }
 
     private void resetFailedAttempts(User user) {

@@ -15,6 +15,14 @@ public interface CompanionRepository extends JpaRepository<Companion, Long> {
     long countByUser(User user);
     List<Companion> findAllByUserOrderByCreatedAtAsc(User user);
 
+    /**
+     * Companions the user owns/purchased (user_id) plus whichever companion
+     * is paired with them via the Team Users screen (assigned_user_id) - a
+     * team member who never bought anything themselves still needs to see the
+     * one companion assigned to them.
+     */
+    List<Companion> findAllByUserOrAssignedUserOrderByCreatedAtAsc(User user, User assignedUser);
+
     /** Scoped lookup so one user can never read or modify another user's companion. */
     Optional<Companion> findByIdAndUser(Long id, User user);
 

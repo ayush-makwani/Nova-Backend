@@ -37,7 +37,7 @@ public class User implements UserDetails {
 
     // Nullable: SSO-provisioned accounts (authProvider = SAML) have no local
     // password. AuthService.login() rejects local login for such accounts
-    // with the same generic "Invalid username or password" response used for
+    // with the same generic "Invalid email or password" response used for
     // any other bad credentials, before ever touching the lockout counter.
     private String password;
 
