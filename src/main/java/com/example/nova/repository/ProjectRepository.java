@@ -1,5 +1,6 @@
 package com.example.nova.repository;
 
+import com.example.nova.entity.Companion;
 import com.example.nova.entity.Project;
 import com.example.nova.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,4 +14,7 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
 
     /** Scoped lookup so one user can never read or reference another user's project. */
     Optional<Project> findByIdAndUser(Long id, User user);
+
+    /** Every project a companion is currently linked to - a companion can now be on many at once. */
+    List<Project> findAllByCompanion(Companion companion);
 }

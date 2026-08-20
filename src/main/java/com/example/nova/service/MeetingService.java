@@ -44,8 +44,10 @@ public class MeetingService {
         Project project = projectRepository.findByIdAndUser(request.getProjectId(), user)
                 .orElseThrow(() -> new ProjectNotFoundException("Project not found"));
 
-        Companion companion = companionRepository.findByProject(project)
-                .orElseThrow(() -> new CompanionNotFoundException("Selected project has no companion assigned"));
+        Companion companion = project.getCompanion();
+        if (companion == null) {
+            throw new CompanionNotFoundException("Selected project has no companion assigned");
+        }
 
         List<String> attendees = request.getAttendees() == null
                 ? new ArrayList<>()

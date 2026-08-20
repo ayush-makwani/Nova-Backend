@@ -133,12 +133,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body(HttpStatus.CONFLICT, ex.getMessage(), request, null));
     }
 
-    @ExceptionHandler(NoAvailableCompanionException.class)
-    public ResponseEntity<Map<String, Object>> handleNoAvailableCompanion(NoAvailableCompanionException ex,
-                                                                            HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body(HttpStatus.CONFLICT, ex.getMessage(), request, null));
-    }
-
     @ExceptionHandler(VoiceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleVoiceNotFound(VoiceNotFoundException ex,
                                                                       HttpServletRequest request) {

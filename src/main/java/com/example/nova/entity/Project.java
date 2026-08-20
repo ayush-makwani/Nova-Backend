@@ -56,6 +56,13 @@ public class Project {
     @Column(name = "voice_note_key", length = 500)
     private String voiceNoteKey;
 
+    // Nullable: a project can be created without a companion, and the same
+    // companion can now be linked to many projects (this is the owning side
+    // of that relationship - the old Companion.project 1:1 FK was removed).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "companion_id")
+    private Companion companion;
+
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 

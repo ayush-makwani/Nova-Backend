@@ -7,7 +7,7 @@ import com.example.nova.entity.Companion;
 import com.example.nova.entity.Meeting;
 import com.example.nova.entity.Project;
 import com.example.nova.entity.User;
-import com.example.nova.exception.NoAvailableCompanionException;
+import com.example.nova.exception.CompanionNotFoundException;
 import com.example.nova.exception.ProjectAlreadyExistsException;
 import com.example.nova.repository.CompanionRepository;
 import com.example.nova.repository.MeetingRepository;
@@ -38,11 +38,14 @@ public class ProjectService {
             throw new ProjectAlreadyExistsException("A project named '" + name + "' already exists");
         }
 
-        // Auto-assign the oldest companion not already linked to a project, matching
-        // the "<Companion> will be assigned" preview shown before the user confirms.
-        Companion companion = companionRepository.findFirstByUserAndProjectIsNullOrderBySeatNumberAsc(user)
-                .orElseThrow(() -> new NoAvailableCompanionException(
-                        "No available companion to assign - every companion is already linked to a project"));
+        // Optional: link an existing companion at creation time. Not required -
+        // a project can exist companion-less - and not exclusive - the same
+        // companion may already be linked to other projects.
+        Companion companion = null;
+        if (request.getCompanionId() != null) {
+            companion = companionRepository.findByIdAndUser(request.getCompanionId(), user)
+                    .orElseThrow(() -> new CompanionNotFoundException("Companion not found"));
+        }
 
         List<String> tags = request.getTags() == null
                 ? new ArrayList<>()
@@ -59,23 +62,23 @@ public class ProjectService {
                 .textContext(request.getTextContext() != null ? request.getTextContext().trim() : null)
                 .documentKeys(documentKeys)
                 .voiceNoteKey(request.getVoiceNoteKey() != null ? request.getVoiceNoteKey().trim() : null)
+                .companion(companion)
                 .build();
         project = projectRepository.save(project);
 
-        companion.setProject(project);
-        companionRepository.save(companion);
+        log.info("User '{}' created project '{}'{}", user.getUsername(), name,
+                companion != null ? ", assigned companion '" + companion.getName() + "'" : "");
 
-        log.info("User '{}' created project '{}', assigned companion '{}'", user.getUsername(), name, companion.getName());
-
-        return toResponse(project, companion);
+        return toResponse(project);
     }
 
-    // Each row does further lookups (companion, its meeting stats); keeping this
-    // in one transaction avoids N extra sessions and any lazy-association surprises.
+    // Each row's companion comes straight off the Project entity now; keeping
+    // this in one transaction still avoids lazy-association surprises when
+    // computing each companion's meeting stats below.
     @Transactional(readOnly = true)
     public List<ProjectResponse> listProjects(User user) {
         return projectRepository.findAllByUserOrderByCreatedAtAsc(user).stream()
-                .map(project -> toResponse(project, companionRepository.findByProject(project).orElse(null)))
+                .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
@@ -87,7 +90,8 @@ public class ProjectService {
                 .collect(Collectors.toList());
     }
 
-    private ProjectResponse toResponse(Project project, Companion companion) {
+    private ProjectResponse toResponse(Project project) {
+        Companion companion = project.getCompanion();
         int meetingsCount = 0;
         Instant lastMeetingAt = null;
         if (companion != null) {

@@ -12,6 +12,7 @@ import com.example.nova.dto.VoiceResponse;
 import com.example.nova.entity.Companion;
 import com.example.nova.entity.CompanionPresenceStatus;
 import com.example.nova.entity.CompanionStatus;
+import com.example.nova.entity.Project;
 import com.example.nova.entity.User;
 import com.example.nova.entity.Voice;
 import com.example.nova.exception.CompanionEmailAlreadyExistsException;
@@ -19,6 +20,7 @@ import com.example.nova.exception.CompanionNotFoundException;
 import com.example.nova.exception.PaymentNotSupportedException;
 import com.example.nova.exception.VoiceNotFoundException;
 import com.example.nova.repository.CompanionRepository;
+import com.example.nova.repository.ProjectRepository;
 import com.example.nova.repository.VoiceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +42,7 @@ public class CompanionService {
 
     private final CompanionRepository companionRepository;
     private final VoiceRepository voiceRepository;
+    private final ProjectRepository projectRepository;
     private final CompanionProperties companionProperties;
 
     @Transactional
@@ -93,10 +96,10 @@ public class CompanionService {
                 .build();
     }
 
-    // Companion.voice and Companion.project are lazy associations; open-in-view
-    // is disabled, so the mapping to CompanionResponse must happen inside a
-    // transaction or these throw LazyInitializationException once the
-    // controller serializes the result outside Hibernate's session.
+    // Companion.voice is a lazy association, and toResponse() also queries
+    // for the companion's projects; open-in-view is disabled, so all of this
+    // must happen inside a transaction or it throws LazyInitializationException
+    // once the controller serializes the result outside Hibernate's session.
     //
     // Includes companions the user owns/purchased AND whichever companion is
     // assigned to them via the Team Users screen - a company team member who
@@ -254,7 +257,9 @@ public class CompanionService {
                 .seatNumber(companion.getSeatNumber())
                 .email(companion.getEmail())
                 .voice(companion.getVoice().getName())
-                .project(companion.getProject() != null ? companion.getProject().getName() : null)
+                .projects(projectRepository.findAllByCompanion(companion).stream()
+                        .map(Project::getName)
+                        .collect(Collectors.toList()))
                 .assignedUserId(companion.getAssignedUser() != null ? companion.getAssignedUser().getId() : null)
                 .status(companion.getStatus())
                 .presenceStatus(companion.getPresenceStatus())

@@ -8,6 +8,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 @Data
 @Builder
@@ -18,7 +19,7 @@ public class CompanionResponse {
     private Integer seatNumber;
     private String email;
     private String voice;
-    private String project; // null -> shown as "Unassigned"
+    private List<String> projects; // names of every project this companion is linked to; empty -> "Unassigned"
     private Long assignedUserId; // null -> not paired with a team member (Team Users screen)
     private CompanionStatus status;
     private CompanionPresenceStatus presenceStatus;
