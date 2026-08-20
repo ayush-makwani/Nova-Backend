@@ -197,3 +197,15 @@ CREATE TABLE IF NOT EXISTS meeting_attendees (
     CONSTRAINT fk_meeting_attendees_meeting FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_meetings_scheduled_at ON meetings(scheduled_at);
+
+CREATE TABLE IF NOT EXISTS aws_credentials (
+    id            BIGINT AUTO_INCREMENT PRIMARY KEY,
+    access_key    VARCHAR(128) NOT NULL,
+    -- AES-GCM encrypted at rest (see service.AwsCredentialEncryptionService) - never stored in plaintext.
+    secret_key    VARCHAR(512) NOT NULL,
+    region        VARCHAR(50)  NOT NULL,
+    bucket_name   VARCHAR(100) NOT NULL,
+    url           VARCHAR(255) NULL,
+    created_at    TIMESTAMP NULL,
+    updated_at    TIMESTAMP NULL
+);

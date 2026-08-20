@@ -127,6 +127,11 @@ app:
   team-user:
     # Placeholder login page linked from the welcome email; not wired to a real flow yet.
     login-url: ${TEAM_USER_LOGIN_URL:http://localhost:3000/login}
+  aws:
+    # Base64 encoded AES-256 key used to encrypt AwsCredential.secretKey at
+    # rest (see service.AwsCredentialEncryptionService). OVERRIDE in production
+    # via env var! Generate one with: openssl rand -base64 32
+    encryption-key: ${AWS_CREDENTIAL_ENCRYPTION_KEY:KrjRqJEbGC2SbPuKMnH+djF7KHHdQx4JKiaBJZ5w7nU=}
 
 # ---------------------------------------------------------------------------
 # SAML 2.0 relying party registration(s) - required only if

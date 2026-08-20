@@ -18,4 +18,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /** Every member of a company workspace (Team Users screen). */
     List<User> findAllByCompanyOrderByCreatedAtAsc(Company company);
+
+    /** Scoped lookup so an admin can never assign a companion to a user outside their own company. */
+    Optional<User> findByIdAndCompany(Long id, Company company);
 }

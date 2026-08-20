@@ -132,6 +132,8 @@ All request/response bodies are JSON.
 | POST   | `/api/team-users`         | Yes (ROLE_ADMIN) | Add a user to the admin's own company workspace; emails them the temp password + a login link |
 | GET    | `/api/team-users`         | Yes (ROLE_ADMIN) | List the admin's company, each user with whichever companion (if any) they're paired with |
 | GET    | `/api/companions/unassigned` | Yes (ROLE_ADMIN) | Companions across the company not yet paired with a team member - the "Team Users" assignment dropdown |
+| PATCH  | `/api/team-users/{userId}/companion` | Yes (ROLE_ADMIN) | Assign a companion (picked from the dropdown) to this team user |
+| GET    | `/api/aws-credentials`    | Yes (ROLE_ADMIN) | Fetch the app's S3 configuration |
 
 SAML-specific endpoints (`/saml2/authenticate/{registrationId}`, `/login/saml2/sso/{registrationId}`, `/saml2/service-provider-metadata/{registrationId}`) are provided directly by Spring Security when SSO is enabled — see below.
 
@@ -309,9 +311,10 @@ curl http://localhost:8111/api/team-users \
 ]
 ```
 
-`companionId`/`companionName`/`companionEmail` are `null` for a user with
-nothing assigned yet. To populate the dropdown's other options (the pool to
-assign *from* - companions not yet paired with anyone):
+`companionId`/`companionName`/`companionEmail` are omitted entirely (not
+`null` - the app's global Jackson `non_null` inclusion setting drops them) for
+a user with nothing assigned yet. To populate the dropdown's other options
+(the pool to assign *from* - companions not yet paired with anyone):
 
 ```bash
 curl http://localhost:8111/api/companions/unassigned \
@@ -319,10 +322,28 @@ curl http://localhost:8111/api/companions/unassigned \
 # -> [ { "id": 3, "name": "NOVA-3", "email": "nova-3@lmssolutions.nova.ai" } ]
 ```
 
-Note: there's no endpoint yet to actually *set* the assignment (the dropdown's
-`onChange`) - only these two read/list endpoints were requested. The
-`assignedUser` relationship exists on `Companion` and is ready for a
-`PATCH /api/team-users/{id}/companion`-style endpoint whenever that's needed.
+Setting the assignment (the dropdown's `onChange`):
+
+```bash
+curl -X PATCH http://localhost:8111/api/team-users/2/companion \
+  -H "Authorization: Bearer <company admin's access token>" \
+  -H "Content-Type: application/json" \
+  -d '{ "companionId": 3 }'
+# -> the updated TeamUserResponse for user 2, now carrying companionId/companionName/companionEmail for NOVA-3
+```
+
+Both the user and the companion must belong to the admin's own company, or
+this is `404`. Per the screen's own copy ("Each user can only be assigned one
+companion... reassigning a companion from one user to another will unassign
+it from the previous holder"), this call is fully idempotent about that
+constraint: if user 2 already held a different companion, that one is freed
+back to the pool; if companion 3 was already held by someone else, this call
+simply overwrites who holds it - `Companion.assignedUser` can only ever point
+at one user, so "unassign the previous holder" falls out naturally rather
+than needing special-case logic. This means the endpoint accepts more than
+just entries from `/api/companions/unassigned` (an already-assigned companion
+works too, reassigning it) - if you want to *forbid* picking an already-taken
+companion instead, that's a one-line change to `TeamUserService.assignCompanion`.
 
 ### Example: calling a protected endpoint
 
