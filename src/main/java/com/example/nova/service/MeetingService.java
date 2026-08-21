@@ -91,6 +91,14 @@ public class MeetingService {
         return meetings.stream().map(this::toResponse).collect(Collectors.toList());
     }
 
+    /** A single project's meeting history (Project Details screen) - the companion + project name it was scheduled under. */
+    @Transactional(readOnly = true)
+    public List<MeetingResponse> listForProject(Companion companion, String projectName) {
+        return meetingRepository.findAllByCompanionAndProjectIgnoreCaseOrderByScheduledAtDesc(companion, projectName).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     /** All of a user's meetings (across every companion) in a given calendar month, for the Meeting Calendar view. */
     @Transactional(readOnly = true)
     public List<MeetingResponse> listForMonth(User user, int year, int month) {

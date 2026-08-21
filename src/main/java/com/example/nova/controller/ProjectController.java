@@ -1,6 +1,7 @@
 package com.example.nova.controller;
 
 import com.example.nova.dto.CreateProjectRequest;
+import com.example.nova.dto.ProjectDetailResponse;
 import com.example.nova.dto.ProjectDocumentRequest;
 import com.example.nova.dto.ProjectDocumentUrlResponse;
 import com.example.nova.dto.ProjectOptionResponse;
@@ -41,6 +42,13 @@ public class ProjectController {
     @GetMapping("/options")
     public ResponseEntity<List<ProjectOptionResponse>> listProjectOptions(@AuthenticationPrincipal User user) {
         return ResponseEntity.ok(projectService.listProjectOptions(user));
+    }
+
+    /** The Project Details screen: companion, stats, context documents, and meeting history. */
+    @GetMapping("/{projectId}")
+    public ResponseEntity<ProjectDetailResponse> getProjectDetail(@AuthenticationPrincipal User user,
+                                                                     @PathVariable Long projectId) {
+        return ResponseEntity.ok(projectService.getProjectDetail(user, projectId));
     }
 
     /** "+ Add Document" on the Companion Context Documents panel - accepts one or more document keys at once. */

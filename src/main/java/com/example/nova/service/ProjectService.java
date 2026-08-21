@@ -1,12 +1,15 @@
 package com.example.nova.service;
 
 import com.example.nova.dto.CreateProjectRequest;
+import com.example.nova.dto.MeetingResponse;
+import com.example.nova.dto.ProjectDetailResponse;
 import com.example.nova.dto.ProjectDocumentUrlResponse;
 import com.example.nova.dto.ProjectOptionResponse;
 import com.example.nova.dto.ProjectResponse;
 import com.example.nova.entity.AwsCredential;
 import com.example.nova.entity.Companion;
 import com.example.nova.entity.Meeting;
+import com.example.nova.entity.MeetingStatus;
 import com.example.nova.entity.Project;
 import com.example.nova.entity.User;
 import com.example.nova.exception.AwsCredentialNotFoundException;
@@ -24,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,6 +40,8 @@ public class ProjectService {
     private final CompanionRepository companionRepository;
     private final MeetingRepository meetingRepository;
     private final AwsCredentialRepository awsCredentialRepository;
+    private final S3DocumentService s3DocumentService;
+    private final MeetingService meetingService;
 
     @Transactional
     public ProjectResponse createProject(User user, CreateProjectRequest request) {
@@ -103,16 +109,26 @@ public class ProjectService {
         return toResponse(project);
     }
 
-    /** Removes one document key from the project's context documents (the "x" on each document chip). */
+    /**
+     * Removes one document key from the project's context documents (the "x"
+     * on each document chip), deleting the underlying object from S3 first so
+     * the project's list and the bucket never drift out of sync.
+     */
     @Transactional
     public ProjectResponse removeDocument(User user, Long projectId, String documentKey) {
         Project project = projectRepository.findByIdAndUser(projectId, user)
                 .orElseThrow(() -> new ProjectNotFoundException("Project not found"));
 
-        project.getDocumentKeys().remove(documentKey.trim());
+        String key = documentKey.trim();
+
+        AwsCredential credential = awsCredentialRepository.findFirstByOrderByIdAsc()
+                .orElseThrow(() -> new AwsCredentialNotFoundException("AWS credentials are not configured yet"));
+        s3DocumentService.deleteDocument(credential, key);
+
+        project.getDocumentKeys().remove(key);
         project = projectRepository.save(project);
 
-        log.info("User '{}' removed a context document from project '{}'", user.getUsername(), project.getName());
+        log.info("User '{}' removed context document '{}' from project '{}'", user.getUsername(), key, project.getName());
 
         return toResponse(project);
     }
@@ -123,6 +139,53 @@ public class ProjectService {
         Project project = projectRepository.findByIdAndUser(projectId, user)
                 .orElseThrow(() -> new ProjectNotFoundException("Project not found"));
 
+        return resolveDocumentUrls(project);
+    }
+
+    /**
+     * The Project Details screen: header/description/tags, the assigned
+     * companion's presence, project stats, resolved context document URLs,
+     * and the project's meeting history (plus the nearest upcoming meeting's
+     * title, for the "Companion will load all files before ..." note).
+     */
+    @Transactional(readOnly = true)
+    public ProjectDetailResponse getProjectDetail(User user, Long projectId) {
+        Project project = projectRepository.findByIdAndUser(projectId, user)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found"));
+
+        Companion companion = project.getCompanion();
+        List<MeetingResponse> meetings = List.of();
+        String nextMeetingTitle = null;
+        if (companion != null) {
+            meetings = meetingService.listForProject(companion, project.getName());
+            Instant now = Instant.now();
+            nextMeetingTitle = meetings.stream()
+                    .filter(m -> m.getStatus() == MeetingStatus.SCHEDULED && m.getScheduledAt().isAfter(now))
+                    .min(Comparator.comparing(MeetingResponse::getScheduledAt))
+                    .map(MeetingResponse::getTitle)
+                    .orElse(null);
+        }
+
+        return ProjectDetailResponse.builder()
+                .id(project.getId())
+                .name(project.getName())
+                .description(project.getDescription())
+                .tags(project.getTags())
+                .companionId(companion != null ? companion.getId() : null)
+                .companionName(companion != null ? companion.getName() : null)
+                .companionEmail(companion != null ? companion.getEmail() : null)
+                .companionVoice(companion != null ? companion.getVoice().getName() : null)
+                .companionPresenceStatus(companion != null ? companion.getPresenceStatus() : null)
+                .meetingsCount(meetings.size())
+                .contextFilesCount(project.getDocumentKeys().size())
+                .createdAt(project.getCreatedAt())
+                .documents(resolveDocumentUrls(project))
+                .nextMeetingTitle(nextMeetingTitle)
+                .meetings(meetings)
+                .build();
+    }
+
+    private List<ProjectDocumentUrlResponse> resolveDocumentUrls(Project project) {
         if (project.getDocumentKeys().isEmpty()) {
             return List.of();
         }
