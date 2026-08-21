@@ -105,6 +105,18 @@ the same JWT the live endpoint requires - click **Authorize** and paste an
 access token obtained from `POST /api/auth/login` to try protected endpoints
 from the UI. See [`OpenApiConfig`](src/main/java/com/example/nova/config/OpenApiConfig.java).
 
+### 6. Logs
+
+Console logging is unchanged. In addition, every log line also goes to a
+rolling file under `logs/` (`app.logging.dir`, override via `LOG_DIR`) named
+with that calendar day's date, e.g. `logs/nova-app-2026-08-20.log`, using the
+same format Spring Boot's console output uses. A new file starts automatically
+at midnight; anything older than `app.logging.retention-days` (default 3,
+override via `LOG_RETENTION_DAYS`) is deleted automatically by Logback - both
+on daily rollover and again on every app startup (`cleanHistoryOnStart`), so
+stale logs never accumulate even after a long-running restart gap. See
+[`logback-spring.xml`](src/main/resources/logback-spring.xml).
+
 ## API reference
 
 All request/response bodies are JSON.

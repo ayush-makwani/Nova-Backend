@@ -12,8 +12,11 @@ import org.springframework.security.authentication.LockedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import jakarta.validation.ConstraintViolationException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -35,6 +38,19 @@ public class GlobalExceptionHandler {
             fieldErrors.put(fe.getField(), fe.getDefaultMessage());
         }
         return ResponseEntity.badRequest().body(body(HttpStatus.BAD_REQUEST, "Validation failed", request, fieldErrors));
+    }
+
+    /** @RequestParam / @PathVariable constraint violations (e.g. @NotBlank on a query param) - the query-param analogue of handleValidation above. */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConstraintViolation(ConstraintViolationException ex,
+                                                                            HttpServletRequest request) {
+        return ResponseEntity.badRequest().body(body(HttpStatus.BAD_REQUEST, "Validation failed", request, null));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingParam(MissingServletRequestParameterException ex,
+                                                                      HttpServletRequest request) {
+        return ResponseEntity.badRequest().body(body(HttpStatus.BAD_REQUEST, ex.getMessage(), request, null));
     }
 
     @ExceptionHandler(UserAlreadyExistsException.class)
