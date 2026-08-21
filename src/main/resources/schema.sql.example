@@ -222,3 +222,60 @@ CREATE TABLE IF NOT EXISTS aws_credentials (
     created_at    TIMESTAMP NULL,
     updated_at    TIMESTAMP NULL
 );
+
+-- Per-user notification toggle set (Settings > Notifications screen). One row
+-- per user, created with the default toggle values on first access.
+CREATE TABLE IF NOT EXISTS notification_preferences (
+    id                          BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id                     BIGINT NOT NULL UNIQUE,
+    meeting_start_reminder      BOOLEAN NOT NULL DEFAULT TRUE,
+    companion_joined_meeting    BOOLEAN NOT NULL DEFAULT TRUE,
+    meeting_ended               BOOLEAN NOT NULL DEFAULT FALSE,
+    mom_delivered               BOOLEAN NOT NULL DEFAULT TRUE,
+    new_action_items_created    BOOLEAN NOT NULL DEFAULT TRUE,
+    action_item_due_soon        BOOLEAN NOT NULL DEFAULT TRUE,
+    companion_offline_alert     BOOLEAN NOT NULL DEFAULT TRUE,
+    weekly_usage_digest         BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at                  TIMESTAMP NULL,
+    updated_at                  TIMESTAMP NULL,
+    CONSTRAINT fk_notification_preferences_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- The project's compact AI memory (PUT/GET /api/projects/{id}/memory). One
+-- row per project, replaced wholesale (never merged) on each write - not
+-- created until the first meeting is summarised.
+CREATE TABLE IF NOT EXISTS project_memory (
+    id                    BIGINT AUTO_INCREMENT PRIMARY KEY,
+    project_id            BIGINT NOT NULL UNIQUE,
+    -- Prose - the bulk of what the model is given. Required but may be empty.
+    compact_memory        VARCHAR(20000) NOT NULL,
+    meetings_summarised   INT NOT NULL DEFAULT 0,
+    -- Null until the first write.
+    updated_at            TIMESTAMP NULL,
+    CONSTRAINT fk_project_memory_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS project_memory_decisions (
+    project_memory_id  BIGINT NOT NULL,
+    decision            VARCHAR(2000) NOT NULL,
+    decision_order       INT NOT NULL,
+    PRIMARY KEY (project_memory_id, decision_order),
+    CONSTRAINT fk_project_memory_decisions_memory FOREIGN KEY (project_memory_id) REFERENCES project_memory(id) ON DELETE CASCADE
+);
+
+-- Flat strings in a fixed display format, e.g. "Name: description (due YYYY-MM-DD) [PRIORITY]".
+CREATE TABLE IF NOT EXISTS project_memory_actions (
+    project_memory_id  BIGINT NOT NULL,
+    action              VARCHAR(2000) NOT NULL,
+    action_order         INT NOT NULL,
+    PRIMARY KEY (project_memory_id, action_order),
+    CONSTRAINT fk_project_memory_actions_memory FOREIGN KEY (project_memory_id) REFERENCES project_memory(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS project_memory_notes (
+    project_memory_id  BIGINT NOT NULL,
+    note                VARCHAR(2000) NOT NULL,
+    note_order           INT NOT NULL,
+    PRIMARY KEY (project_memory_id, note_order),
+    CONSTRAINT fk_project_memory_notes_memory FOREIGN KEY (project_memory_id) REFERENCES project_memory(id) ON DELETE CASCADE
+);
