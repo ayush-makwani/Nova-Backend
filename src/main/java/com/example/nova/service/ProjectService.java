@@ -1,14 +1,19 @@
 package com.example.nova.service;
 
 import com.example.nova.dto.CreateProjectRequest;
+import com.example.nova.dto.ProjectDocumentUrlResponse;
 import com.example.nova.dto.ProjectOptionResponse;
 import com.example.nova.dto.ProjectResponse;
+import com.example.nova.entity.AwsCredential;
 import com.example.nova.entity.Companion;
 import com.example.nova.entity.Meeting;
 import com.example.nova.entity.Project;
 import com.example.nova.entity.User;
+import com.example.nova.exception.AwsCredentialNotFoundException;
 import com.example.nova.exception.CompanionNotFoundException;
 import com.example.nova.exception.ProjectAlreadyExistsException;
+import com.example.nova.exception.ProjectNotFoundException;
+import com.example.nova.repository.AwsCredentialRepository;
 import com.example.nova.repository.CompanionRepository;
 import com.example.nova.repository.MeetingRepository;
 import com.example.nova.repository.ProjectRepository;
@@ -30,6 +35,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final CompanionRepository companionRepository;
     private final MeetingRepository meetingRepository;
+    private final AwsCredentialRepository awsCredentialRepository;
 
     @Transactional
     public ProjectResponse createProject(User user, CreateProjectRequest request) {
@@ -80,6 +86,62 @@ public class ProjectService {
         return projectRepository.findAllByUserOrderByCreatedAtAsc(user).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    /** Adds one or more document keys to the project's context documents ("+ Add Document"). */
+    @Transactional
+    public ProjectResponse addDocuments(User user, Long projectId, List<String> documentKeys) {
+        Project project = projectRepository.findByIdAndUser(projectId, user)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found"));
+
+        documentKeys.stream().map(String::trim).forEach(project.getDocumentKeys()::add);
+        project = projectRepository.save(project);
+
+        log.info("User '{}' added {} context document(s) to project '{}'",
+                user.getUsername(), documentKeys.size(), project.getName());
+
+        return toResponse(project);
+    }
+
+    /** Removes one document key from the project's context documents (the "x" on each document chip). */
+    @Transactional
+    public ProjectResponse removeDocument(User user, Long projectId, String documentKey) {
+        Project project = projectRepository.findByIdAndUser(projectId, user)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found"));
+
+        project.getDocumentKeys().remove(documentKey.trim());
+        project = projectRepository.save(project);
+
+        log.info("User '{}' removed a context document from project '{}'", user.getUsername(), project.getName());
+
+        return toResponse(project);
+    }
+
+    /** Resolves the project's context document keys into fetchable URLs against the app's S3 configuration. */
+    @Transactional(readOnly = true)
+    public List<ProjectDocumentUrlResponse> getDocumentUrls(User user, Long projectId) {
+        Project project = projectRepository.findByIdAndUser(projectId, user)
+                .orElseThrow(() -> new ProjectNotFoundException("Project not found"));
+
+        if (project.getDocumentKeys().isEmpty()) {
+            return List.of();
+        }
+
+        AwsCredential credential = awsCredentialRepository.findFirstByOrderByIdAsc()
+                .orElseThrow(() -> new AwsCredentialNotFoundException("AWS credentials are not configured yet"));
+
+        return project.getDocumentKeys().stream()
+                .map(key -> ProjectDocumentUrlResponse.builder()
+                        .documentKey(key)
+                        .url(resolveUrl(credential.getUrl(), key))
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    private String resolveUrl(String baseUrl, String key) {
+        String base = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+        String path = key.startsWith("/") ? key.substring(1) : key;
+        return base + "/" + path;
     }
 
     /** Lightweight id/name pairs for populating a "Select Project" dropdown. */
