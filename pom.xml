@@ -24,6 +24,7 @@
         <totp.version>1.7.1</totp.version>
         <bucket4j.version>8.10.1</bucket4j.version>
         <springdoc.version>2.7.0</springdoc.version>
+        <awssdk.version>2.23.7</awssdk.version>
     </properties>
 
     <!--
@@ -69,6 +70,29 @@
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <!--
+          S3 (see service.S3DocumentService) - deletes documents from the
+          configured bucket when unlinked from a project. Excludes the async
+          netty-nio-client (the s3 module's default transitive HTTP client) in
+          favor of the sync apache-client below - only synchronous calls are made here.
+        -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${awssdk.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>netty-nio-client</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>apache-client</artifactId>
+            <version>${awssdk.version}</version>
         </dependency>
 
         <!-- JWT (jjwt) -->

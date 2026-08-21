@@ -161,6 +161,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(body(HttpStatus.NOT_IMPLEMENTED, ex.getMessage(), request, null));
     }
 
+    /** The S3 call itself failed (network, credentials, permissions) - an upstream dependency failure, not a client error. */
+    @ExceptionHandler(DocumentDeletionFailedException.class)
+    public ResponseEntity<Map<String, Object>> handleDocumentDeletionFailed(DocumentDeletionFailedException ex,
+                                                                               HttpServletRequest request) {
+        log.error("Document deletion from S3 failed", ex);
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body(HttpStatus.BAD_GATEWAY, ex.getMessage(), request, null));
+    }
+
     /**
      * Spring MVC resolves @ExceptionHandler methods before an exception ever
      * reaches the security filter chain's AccessDeniedHandler, so without this,
