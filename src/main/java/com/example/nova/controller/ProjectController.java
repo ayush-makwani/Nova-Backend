@@ -4,9 +4,12 @@ import com.example.nova.dto.CreateProjectRequest;
 import com.example.nova.dto.ProjectDetailResponse;
 import com.example.nova.dto.ProjectDocumentRequest;
 import com.example.nova.dto.ProjectDocumentUrlResponse;
+import com.example.nova.dto.ProjectMemoryResponse;
 import com.example.nova.dto.ProjectOptionResponse;
 import com.example.nova.dto.ProjectResponse;
+import com.example.nova.dto.UpdateProjectMemoryRequest;
 import com.example.nova.entity.User;
+import com.example.nova.service.ProjectMemoryService;
 import com.example.nova.service.ProjectService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -26,6 +29,7 @@ import java.util.List;
 public class ProjectController {
 
     private final ProjectService projectService;
+    private final ProjectMemoryService projectMemoryService;
 
     @PostMapping
     public ResponseEntity<ProjectResponse> createProject(@AuthenticationPrincipal User user,
@@ -72,5 +76,20 @@ public class ProjectController {
     public ResponseEntity<List<ProjectDocumentUrlResponse>> getDocumentUrls(@AuthenticationPrincipal User user,
                                                                               @PathVariable Long projectId) {
         return ResponseEntity.ok(projectService.getDocumentUrls(user, projectId));
+    }
+
+    /** The project's compact AI memory - 200 with empty fields if no meeting has been summarised yet. */
+    @GetMapping("/{projectId}/memory")
+    public ResponseEntity<ProjectMemoryResponse> getMemory(@AuthenticationPrincipal User user,
+                                                              @PathVariable Long projectId) {
+        return ResponseEntity.ok(projectMemoryService.getMemory(user, projectId));
+    }
+
+    /** Replaces the project's memory wholesale - never merged, the caller always sends the complete picture. */
+    @PutMapping("/{projectId}/memory")
+    public ResponseEntity<ProjectMemoryResponse> replaceMemory(@AuthenticationPrincipal User user,
+                                                                  @PathVariable Long projectId,
+                                                                  @Valid @RequestBody UpdateProjectMemoryRequest request) {
+        return ResponseEntity.ok(projectMemoryService.replaceMemory(user, projectId, request));
     }
 }

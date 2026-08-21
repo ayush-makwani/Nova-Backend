@@ -29,6 +29,14 @@
             <totalSizeCap>500MB</totalSizeCap>
             <cleanHistoryOnStart>true</cleanHistoryOnStart>
         </rollingPolicy>
+        <!--
+          Explicit despite true being OutputStreamAppender's documented default -
+          on a long-running process this appender was otherwise sitting on
+          buffered events for hours (only flushing on JVM shutdown or the daily
+          rollover), so log lines never showed up in the file in anything close
+          to real time. Forces a flush after every event instead.
+        -->
+        <immediateFlush>true</immediateFlush>
         <encoder>
             <pattern>${FILE_LOG_PATTERN}</pattern>
         </encoder>

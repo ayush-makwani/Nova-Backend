@@ -19,7 +19,7 @@ public class CompanionProperties {
     private String namePrefix = "NOVA";
 
     /** Voice assigned to a companion at creation time; changeable later from the companion detail page. */
-    private String defaultVoice = "Atlas";
+    private String defaultVoice = "Aoede";
 
     private Behavior defaultBehavior = new Behavior();
 
