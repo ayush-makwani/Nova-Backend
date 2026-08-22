@@ -108,7 +108,7 @@ app:
     price-per-month: 89.00
     max-quantity: 10
     name-prefix: NOVA
-    default-voice: Atlas
+    default-voice: Aoede
     default-behavior:
       auto-join-meetings: true
       send-mom-automatically: true
