@@ -1,0 +1,65 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <title>{{title}}</title>
+    <!--
+      Shared chrome for every Nova email. Deliberately old-school: tables for
+      layout and inline styles on every element, because Outlook (Word render
+      engine) ignores flex/grid and several clients strip <style> blocks. The
+      rules below are progressive enhancement only - nothing here is load
+      bearing, so a client that drops them still renders correctly.
+    -->
+    <style type="text/css">
+        @media only screen and (max-width: 620px) {
+            .nv-card { width: 100% !important; }
+            .nv-pad { padding-left: 24px !important; padding-right: 24px !important; }
+            .nv-h1 { font-size: 22px !important; }
+        }
+    </style>
+</head>
+<body style="margin:0; padding:0; background-color:#eef3f9; -webkit-font-smoothing:antialiased;">
+
+<!-- Inbox preview line; hidden in the body itself. -->
+<div style="display:none; font-size:1px; color:#eef3f9; line-height:1px; max-height:0; max-width:0; opacity:0; overflow:hidden;">{{preheader}}</div>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#eef3f9" style="background-color:#eef3f9;">
+    <tr>
+        <td align="center" style="padding:32px 12px;">
+
+            <table role="presentation" class="nv-card" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:600px; background-color:#ffffff; border:1px solid #dce5f0; border-radius:12px; overflow:hidden;">
+
+                <!-- Header band -->
+                <tr>
+                    <td bgcolor="#0f3f96" style="background-color:#0f3f96; padding:26px 40px;">
+                        <div style="font-family:Helvetica,Arial,sans-serif; font-size:22px; font-weight:bold; color:#ffffff; letter-spacing:4px; line-height:1.2;">NOVA</div>
+                        <div style="font-family:Helvetica,Arial,sans-serif; font-size:12px; color:#a9c4ec; letter-spacing:1px; padding-top:5px;">AI MEETING COMPANION</div>
+                    </td>
+                </tr>
+
+                <!-- Message body -->
+                <tr>
+                    <td class="nv-pad" style="padding:38px 40px 40px 40px;">
+                        {{body}}
+                    </td>
+                </tr>
+
+                <!-- Footer -->
+                <tr>
+                    <td class="nv-pad" bgcolor="#f4f8fd" style="background-color:#f4f8fd; border-top:1px solid #dce5f0; padding:22px 40px;">
+                        <p style="margin:0; font-family:Helvetica,Arial,sans-serif; font-size:12px; line-height:1.6; color:#7b8ba3;">
+                            This is an automated message from Nova &mdash; please don't reply to it.
+                        </p>
+                    </td>
+                </tr>
+
+            </table>
+
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

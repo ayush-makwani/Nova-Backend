@@ -59,12 +59,6 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body(HttpStatus.CONFLICT, ex.getMessage(), request, null));
     }
 
-    @ExceptionHandler(CompanyDomainAlreadyExistsException.class)
-    public ResponseEntity<Map<String, Object>> handleCompanyDomainExists(CompanyDomainAlreadyExistsException ex,
-                                                                            HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(body(HttpStatus.CONFLICT, ex.getMessage(), request, null));
-    }
-
     @ExceptionHandler(TokenRefreshException.class)
     public ResponseEntity<Map<String, Object>> handleTokenRefresh(TokenRefreshException ex,
                                                                     HttpServletRequest request) {

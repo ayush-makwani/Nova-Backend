@@ -74,10 +74,10 @@ public class AuthService {
      */
     @Transactional
     public MessageResponse signupCompany(CompanySignupRequest request) {
+        // Domains are deliberately not unique - several workspaces may sign up
+        // under the same company domain. The admin's email still has to be
+        // unique, which is what actually keeps the accounts distinct.
         String domain = request.getCompanyDomain().trim().toLowerCase();
-//        if (companyRepository.existsByDomainIgnoreCase(domain)) {
-//            throw new CompanyDomainAlreadyExistsException("A company is already registered with domain '" + domain + "'");
-//        }
         if (userRepository.existsByEmail(request.getAdminEmail())) {
             throw new UserAlreadyExistsException("Email is already registered");
         }
