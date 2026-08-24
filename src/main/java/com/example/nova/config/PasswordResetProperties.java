@@ -14,5 +14,5 @@ public class PasswordResetProperties {
     private String resetLinkBaseUrl = "http://localhost:3000/reset-password";
 
     /** "From" address on the reset email. */
-    private String fromAddress = "no-reply@nova.ai";
+    private String fromAddress = "lmsconnectai@gmail.com";
 }

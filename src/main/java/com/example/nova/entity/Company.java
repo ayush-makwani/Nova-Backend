@@ -5,11 +5,15 @@ import lombok.*;
 
 import java.time.Instant;
 
-/** A team/company workspace created via the "Company / Team" signup flow. */
+/**
+ * A team/company workspace created via the "Company / Team" signup flow.
+ *
+ * <p>{@code domain} is intentionally NOT unique - several workspaces may sign
+ * up under the same company domain. Companion identity emails remain unique on
+ * their own (see {@code CompanionService.uniqueCompanionEmail}).
+ */
 @Entity
-@Table(name = "companies", uniqueConstraints = {
-        @UniqueConstraint(columnNames = "domain")
-})
+@Table(name = "companies")
 @Getter
 @Setter
 @NoArgsConstructor
