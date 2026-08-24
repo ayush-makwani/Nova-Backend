@@ -30,7 +30,7 @@ public class S3DocumentService {
 
     public void deleteDocument(AwsCredential credential, String documentKey) {
         AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(
-                credential.getAccessKey(), encryptionService.decrypt(credential.getSecretKey()));
+                credential.getAccessKey(),credential.getSecretKey());
 
         try (S3Client s3Client = S3Client.builder()
                 .region(Region.of(credential.getRegion()))
