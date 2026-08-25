@@ -50,13 +50,19 @@ public class ProjectService {
             throw new ProjectAlreadyExistsException("A project named '" + name + "' already exists");
         }
 
-        // Optional: link an existing companion at creation time. Not required -
-        // a project can exist companion-less - and not exclusive - the same
-        // companion may already be linked to other projects.
+        // Linking a companion is optional - a project can exist companion-less -
+        // and not exclusive: the same companion may already be on other projects.
+        //
+        // An explicit companionId always wins. With none supplied we fall back
+        // to whichever companion is already paired with this user on the Team
+        // Users screen, so their own companion follows them onto anything they
+        // create without having to pick it every time.
         Companion companion = null;
         if (request.getCompanionId() != null) {
             companion = companionRepository.findByIdAndUser(request.getCompanionId(), user)
                     .orElseThrow(() -> new CompanionNotFoundException("Companion not found"));
+        } else {
+            companion = companionRepository.findByAssignedUser(user).orElse(null);
         }
 
         List<String> tags = request.getTags() == null
