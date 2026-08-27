@@ -1,5 +1,6 @@
 package com.example.nova.security;
 
+import com.example.nova.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
@@ -31,12 +32,29 @@ public class JwtService {
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    public String generateAccessToken(UserDetails userDetails) {
+    /**
+     * Takes the concrete {@link User} rather than {@link UserDetails} on
+     * purpose: the id/company claims below are not on the interface, so an
+     * interface-typed parameter would let a caller quietly produce a token
+     * missing them. This way the compiler enforces it.
+     *
+     * <p>Callers must be inside a transaction - {@code user.getCompany()} is a
+     * lazy association and open-in-view is disabled. Every current call site
+     * (login, MFA verify, refresh, SSO exchange) already is.
+     */
+    public String generateAccessToken(User user) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("authorities", userDetails.getAuthorities().stream()
+        claims.put("authorities", user.getAuthorities().stream()
                 .map(Object::toString)
                 .toList());
-        return buildToken(claims, userDetails.getUsername(), jwtProperties.getAccessTokenExpirationMs());
+        claims.put("userId", user.getId());
+        // Individual accounts have no company, so the claim is omitted rather
+        // than emitted as null - consumers can read "present" as "belongs to
+        // a workspace" instead of having to null-check.
+        if (user.getCompany() != null) {
+            claims.put("companyId", user.getCompany().getId());
+        }
+        return buildToken(claims, user.getUsername(), jwtProperties.getAccessTokenExpirationMs());
     }
 
     private String buildToken(Map<String, Object> claims, String subject, long expirationMs) {
