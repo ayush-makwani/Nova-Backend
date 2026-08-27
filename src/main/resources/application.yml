@@ -1,5 +1,18 @@
+# ---------------------------------------------------------------------------
+# Every value here is sourced from .env (see `spring.config.import` below).
+# The `${VAR:default}` fallbacks keep the app bootable without a .env file,
+# so nothing secret is hard-coded here - blanks mean "must come from .env".
+#
+# Precedence for each ${VAR:fallback} below, highest first:
+#   1. a real exported environment variable
+#   2. .env (imported below)
+#   3. the `:fallback` written inline here - only used when neither is set
+#
+# Separately, application-<profile>.yml overrides whatever this file resolves
+# to, which is how the test profile pins its own datasource and JWT settings.
+# ---------------------------------------------------------------------------
 server:
-  port: 8111
+  port: ${SERVER_PORT:8111}
   error:
     include-message: never
     include-stacktrace: never
@@ -9,21 +22,27 @@ spring:
   application:
     name: nova-app
 
+  # `optional:` so a missing .env is not a startup failure (CI, tests, prod
+  # containers that inject real env vars instead). The [.properties] hint tells
+  # Spring to parse the extensionless file as KEY=value.
+  config:
+    import: optional:file:.env[.properties]
+
   datasource:
-    url: jdbc:mysql://172.16.2.12:3306/nova?useSSL=true&serverTimezone=UTC&allowPublicKeyRetrieval=false
-    username: root
-    password: soccer@401hunk
+    url: ${DB_URL:jdbc:mysql://localhost:3306/nova?useSSL=true&serverTimezone=UTC&allowPublicKeyRetrieval=false}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
-      connection-timeout: 20000
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT_MS:20000}
 
   jpa:
     hibernate:
       # use 'validate' in production once schema is managed by migrations
-      ddl-auto: update
-    show-sql: false
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         format_sql: true
@@ -46,22 +65,19 @@ spring:
   # Gmail + App Password. This is NOT a normal account password - Google
   # rejects those over SMTP. Generate one at
   # https://myaccount.google.com/apppasswords (2-Step Verification must be
-  # enabled on the account first). It is 16 lowercase characters, entered here
-  # with the spaces removed.
+  # enabled on the account first). It is 16 lowercase characters, entered with
+  # the spaces removed.
   #
   # Personal Outlook/Hotmail addresses cannot be used here at all: Microsoft
   # permanently disabled SMTP basic auth for them, so any username/password -
   # app passwords included - is rejected with "535 5.7.139
   # SmtpClientAuthentication is disabled for the Mailbox", whatever the host.
-  #
-  # Prefer setting MAIL_USERNAME / MAIL_PASSWORD as env vars over committing
-  # real credentials to this file.
   # ---------------------------------------------------------------------------
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:lmsconnectai@gmail.com}
-    password: ${MAIL_PASSWORD:vprhbmsgbfnoojjw}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -91,23 +107,23 @@ springdoc:
 app:
   security:
     jwt:
-      # Base64 encoded HMAC-SHA256 secret (>= 256 bits). OVERRIDE in production via env var!
-      secret: ${JWT_SECRET:MzY0N2M4YTY1MjNlZDQ1YTQyOTBjNDcyM2FiZDkwYzE2N2FlNzM1NGYxYjQ0MzQxYmY1YzM1YzYzZGVkNGQ2Yg==}
+      # Base64 encoded HMAC-SHA256 secret (>= 256 bits). Supply via .env!
+      secret: ${JWT_SECRET:}
       access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}       # 15 minutes
       refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000} # 7 days
-      issuer: nova-app
+      issuer: ${JWT_ISSUER:nova-app}
     account-lock:
-      max-failed-attempts: 5
-      lock-duration-minutes: 15
+      max-failed-attempts: ${ACCOUNT_LOCK_MAX_FAILED_ATTEMPTS:5}
+      lock-duration-minutes: ${ACCOUNT_LOCK_DURATION_MINUTES:15}
     mfa:
-      issuer: NovaApp
+      issuer: ${MFA_ISSUER:NovaApp}
     cors:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
     rate-limit:
       login:
-        capacity: 10
-        refill-tokens: 10
-        refill-duration-minutes: 1
+        capacity: ${RATE_LIMIT_CAPACITY:10}
+        refill-tokens: ${RATE_LIMIT_REFILL_TOKENS:10}
+        refill-duration-minutes: ${RATE_LIMIT_REFILL_DURATION_MINUTES:1}
     sso:
       saml:
         # Master switch. False = SamlSsoConfig is not even evaluated and the
@@ -121,15 +137,15 @@ app:
         success-redirect-uri: ${SSO_SAML_SUCCESS_REDIRECT_URI:http://localhost:3000/sso/callback}
         failure-redirect-uri: ${SSO_SAML_FAILURE_REDIRECT_URI:http://localhost:3000/sso/error}
   companions:
-    price-per-month: 89.00
-    max-quantity: 10
-    name-prefix: NOVA
-    default-voice: Aoede
+    price-per-month: ${COMPANIONS_PRICE_PER_MONTH:89.00}
+    max-quantity: ${COMPANIONS_MAX_QUANTITY:10}
+    name-prefix: ${COMPANIONS_NAME_PREFIX:NOVA}
+    default-voice: ${COMPANIONS_DEFAULT_VOICE:Atlas}
     default-behavior:
-      auto-join-meetings: true
-      send-mom-automatically: true
-      respond-in-voice: true
-      record-meeting-audio: false
+      auto-join-meetings: ${COMPANIONS_AUTO_JOIN_MEETINGS:true}
+      send-mom-automatically: ${COMPANIONS_SEND_MOM_AUTOMATICALLY:true}
+      respond-in-voice: ${COMPANIONS_RESPOND_IN_VOICE:true}
+      record-meeting-audio: ${COMPANIONS_RECORD_MEETING_AUDIO:false}
     payment:
       # Master switch. False (default) = checkout skips real payment
       # processing entirely and companions are activated immediately on
@@ -137,7 +153,7 @@ app:
       # payment provider is not integrated yet.
       enabled: ${COMPANIONS_PAYMENT_ENABLED:false}
   password-reset:
-    token-expiration-minutes: 30
+    token-expiration-minutes: ${PASSWORD_RESET_TOKEN_EXPIRATION_MINUTES:30}
     reset-link-base-url: ${PASSWORD_RESET_LINK_BASE_URL:http://localhost:3000/reset-password}
     # Defaults to the authenticated SMTP account. Gmail will not send as an
     # arbitrary address: it silently rewrites From to the authenticated user,
@@ -145,19 +161,19 @@ app:
     # branded address like no-reply@nova.ai, add it under Gmail Settings >
     # Accounts > "Send mail as" and verify it first, then set this explicitly.
     #
-    # Chains off the resolved `spring.mail.username` property, NOT the
-    # MAIL_USERNAME env var - the username may come from either the env var or
-    # this file's default, and reading the env var directly resolves to an
-    # empty From whenever it is unset, which fails with "Could not parse mail".
+    # Chains off the resolved `spring.mail.username` property rather than the
+    # MAIL_USERNAME variable directly, so it follows the username wherever it
+    # came from. Reading the variable directly resolves to an empty From when
+    # it is unset, which fails with "Could not parse mail".
     from-address: ${PASSWORD_RESET_FROM_ADDRESS:${spring.mail.username:}}
   team-user:
     # Placeholder login page linked from the welcome email; not wired to a real flow yet.
     login-url: ${TEAM_USER_LOGIN_URL:http://localhost:3000/login}
   aws:
     # Base64 encoded AES-256 key used to encrypt AwsCredential.secretKey at
-    # rest (see service.AwsCredentialEncryptionService). OVERRIDE in production
-    # via env var! Generate one with: openssl rand -base64 32
-    encryption-key: ${AWS_CREDENTIAL_ENCRYPTION_KEY:KrjRqJEbGC2SbPuKMnH+djF7KHHdQx4JKiaBJZ5w7nU=}
+    # rest (see service.AwsCredentialEncryptionService). Supply via .env!
+    # Generate one with: openssl rand -base64 32
+    encryption-key: ${AWS_CREDENTIAL_ENCRYPTION_KEY:}
   logging:
     # File logging (see logback-spring.xml). Console logging is unaffected -
     # this only adds a rolling file appender: one file per calendar day, kept
@@ -206,6 +222,6 @@ app:
 
 logging:
   level:
-    root: INFO
-    org.springframework.security: WARN
-    com.example.nova: INFO
+    root: ${LOG_LEVEL_ROOT:INFO}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:WARN}
+    com.example.nova: ${LOG_LEVEL_APP:INFO}
